@@ -1,0 +1,38 @@
+﻿Compilación iniciada a las 26/09/2014 12:54:41 p.m..
+Proyecto "C:\Users\USER\ENTERMOVIL\DAAS\PROYECTOS\PROCESAR_PAUTAS\buscarPautas\buscarPautas\buscarPautas.vcxproj" en el nodo 2 (build destinos).
+InitializeBuildStatus:
+  Se creará "Debug\buscarPautas.unsuccessfulbuild" porque se especificó "AlwaysCreate".
+ClCompile:
+  Todas las salidas están actualizadas.
+  c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\CL.exe /c /IC:\opencv242\build\include\ /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Yu"StdAfx.h" /Fp"Debug\buscarPautas.pch" /Fo"Debug\\" /Fd"Debug\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt buscarPautas.cpp
+  buscarPautas.cpp
+c:\users\user\entermovil\daas\proyectos\procesar_pautas\buscarpautas\buscarpautas\buscarpautas.cpp(132): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : vea la declaración de 'sprintf'
+c:\users\user\entermovil\daas\proyectos\procesar_pautas\buscarpautas\buscarpautas\buscarpautas.cpp(140): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : vea la declaración de 'sprintf'
+c:\users\user\entermovil\daas\proyectos\procesar_pautas\buscarpautas\buscarpautas\buscarpautas.cpp(148): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : vea la declaración de 'sprintf'
+c:\users\user\entermovil\daas\proyectos\procesar_pautas\buscarpautas\buscarpautas\buscarpautas.cpp(222): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : vea la declaración de 'sprintf'
+c:\users\user\entermovil\daas\proyectos\procesar_pautas\buscarpautas\buscarpautas\buscarpautas.cpp(255): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : vea la declaración de 'sprintf'
+c:\users\user\entermovil\daas\proyectos\procesar_pautas\buscarpautas\buscarpautas\buscarpautas.cpp(305): warning C4244: 'inicializando' : conversión de 'double' a 'float'; posible pérdida de datos
+c:\users\user\entermovil\daas\proyectos\procesar_pautas\buscarpautas\buscarpautas\buscarpautas.cpp(307): warning C4244: 'inicializando' : conversión de 'double' a 'float'; posible pérdida de datos
+c:\users\user\entermovil\daas\proyectos\procesar_pautas\buscarpautas\buscarpautas\buscarpautas.cpp(412): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : vea la declaración de 'sprintf'
+c:\users\user\entermovil\daas\proyectos\procesar_pautas\buscarpautas\buscarpautas\buscarpautas.cpp(415): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : vea la declaración de 'sprintf'
+c:\users\user\entermovil\daas\proyectos\procesar_pautas\buscarpautas\buscarpautas\buscarpautas.cpp(428): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : vea la declaración de 'sprintf'
+ManifestResourceCompile:
+  Todas las salidas están actualizadas.
+Link:
+  c:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\USER\ENTERMOVIL\DAAS\PROYECTOS\PROCESAR_PAUTAS\buscarPautas\Debug\buscarPautas.exe" /INCREMENTAL /NOLOGO opencv_core242d.lib opencv_imgproc242d.lib opencv_highgui242d.lib opencv_ml242d.lib opencv_video242d.lib opencv_features2d242d.lib opencv_calib3d242d.lib opencv_objdetect242d.lib opencv_contrib242d.lib opencv_legacy242d.lib opencv_flann242d.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Debug\buscarPautas.exe.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"C:\Users\USER\ENTERMOVIL\DAAS\PROYECTOS\PROCESAR_PAUTAS\buscarPautas\Debug\buscarPautas.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\USER\ENTERMOVIL\DAAS\PROYECTOS\PROCESAR_PAUTAS\buscarPautas\Debug\buscarPautas.lib" /MACHINE:X86 Debug\buscarPautas.exe.embed.manifest.res
+  Debug\buscarPautas.obj
+  Debug\stdafx.obj
+LINK : fatal error LNK1168: no se puede abrir C:\Users\USER\ENTERMOVIL\DAAS\PROYECTOS\PROCESAR_PAUTAS\buscarPautas\Debug\buscarPautas.exe para escritura
+Compilación del proyecto terminada "C:\Users\USER\ENTERMOVIL\DAAS\PROYECTOS\PROCESAR_PAUTAS\buscarPautas\buscarPautas\buscarPautas.vcxproj" (build destinos) -- ERROR.
+
+ERROR al compilar.
+
+Tiempo transcurrido 00:00:08.57

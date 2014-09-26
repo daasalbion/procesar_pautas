@@ -8,7 +8,7 @@
      */
 
     define('FFMPEG_LIBRARY', 'C:/ffmpeg/bin/ffmpeg.exe');
-    define('BUSCARPAUTA_LIBRARY', 'C:/pautas2/buscarPautas/Debug/buscarPautas.exe');
+    define('BUSCARPAUTA_LIBRARY', 'C:/Users/USER/ENTERMOVIL/DAAS/PROYECTOS/PROCESAR_PAUTAS/buscarPautas/Debug/buscarPautas.exe');
     set_include_path('C:/Program Files (x86)/Zend/ZendServer/share/ZendFramework/library');
     ini_set('display_errors', true);
     error_reporting(E_STRICT);
@@ -65,14 +65,14 @@
         global $db;
         $datos = array();
 
-        //$sql = 'select * from pautas where fecha = ?';
-        $sql = "select * from pautas where alias = 'AFORTUNA1' and fecha > '2014-09-09' order by fecha asc";
+        $sql = 'select * from pautas where fecha = ?';
+        //$sql = "select * from pautas where alias = 'AFORTUNA1' AND fecha > '2014-09-14' and fecha < '2014-09-18'";
 
         $rs = $db->fetchAll( $sql, $fecha );
 
         $plantillasPautas = array();
         $nombre_dias = array('Sunday' => 'DOMINGO', 'Monday' => 'LUNES', 'Tuesday' => 'MARTES' ,'Wednesday'=>'MIERCOLES','Thursday'=>'JUEVES','Friday' => 'VIERNES', 'Saturday'=>'SABADO');
-        $path_fijo = 'C:/Users/USER/ENTERMOVIL/DAAS/PROYECTOS/TVCHAT/PAUTAS/AFORTUNADOS1/TEMPLATES/';
+        $path_fijo = 'C:/Users/USER/ENTERMOVIL/DAAS/PROYECTOS/TVCHAT/PAUTAS/AFORTUNADOS1/TEMPLATES';
 
         foreach ( $rs as $fila ){
 
@@ -979,7 +979,7 @@
         if($argv[1] == '--reporte'){
             $path_carpeta_trabajo = 'C:\Users\USER\ENTERMOVIL\DAAS\PROYECTOS\TVCHAT\PAUTAS\AFORTUNADOS1\PAUTAS';//FIJO
             //$fechaEnviar = date("Y-m-d");
-            $fechaEnviar = "2014-09-09"; //MODIFICADO
+            $fechaEnviar = "2014-09-16"; //MODIFICADO
             $plantillasPautas = obtenerDatosSpots( $fechaEnviar );
             print_r( $plantillasPautas );
             //exit;
@@ -1018,9 +1018,6 @@
                                             $reporte[$nombrePauta][ 'DIA' ] = substr($days, 0, 10); //MODIFICADO
                                             $reporte[$nombrePauta][ $days ] = $reporte_del_dia;//MODIFICADO
                                             $reporte[$nombrePauta][ $days ]['PAUTAS_ENCONTRADAS_DIA'] = 0;//MODIFICADO
-                                            //modificado
-                                            $matar_buscarPautas = 'Taskkill /IM "buscarPautas.exe" /F';
-                                            $resultado_convertir = ejecutar_comando($matar_buscarPautas);
 
                                         }
                                         else{
@@ -1079,7 +1076,7 @@
         }
         if($argv[1] == '--reportepautas'){
 
-            /***************************************** PRIMER PASO - MOVERARCHVIOSPAUTAS ****************************************************/
+            /***************************************** PRIMER PASO - MOVERARCHIVOSPAUTAS ****************************************************/
 
             //DIRECTORIO DE GRABACIONES TELEFUTURO - SNT
             $directorio_grabaciones = 'C:\Users\User\Videos\GRABACIONES';//CAMBIAR AL CAMBIAR DE PC
@@ -1177,7 +1174,7 @@
                         printf("\n====================================================\n");
                         printf("Procesando: [%s]\n", basename($path_archivo_a_procesar));
                         printf("====================================================\n\n");
-                        $path_archivo_convertido = convertir_a_AVI2($path_archivo_a_procesar, $path_carpeta_trabajo, $datos_resumen);
+                        convertir_a_AVI2($path_archivo_a_procesar, $path_carpeta_trabajo, $datos_resumen);
                     }
 
                     print_r($datos_resumen);
