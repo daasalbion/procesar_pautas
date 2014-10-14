@@ -27,7 +27,7 @@
         $format = '%timestamp% %priorityName% (%priority%): %message%' . PHP_EOL;
         $formatter = new Zend_Log_Formatter_Simple($format);
 
-        $writer = new Zend_Log_Writer_Stream('logs_' . date('Y-m-d') .  '.log');
+        $writer = new Zend_Log_Writer_Stream('logs/logs_' . date('Y-m-d') .  '.log');
         $writer->setFormatter($formatter);
 
         $consola = new Zend_Log_Writer_Stream('php://output');
@@ -242,7 +242,7 @@
         }
         return TRUE;
     }
-    //funcion que ejecuta las lineas de comando
+    /*funcion que ejecuta las lineas de comando*/
     function ejecutar_comando( $comando ) {
         //se aguarda el comando en un buffer interno
         ob_start();
@@ -334,7 +334,7 @@
 
         return $datos_duracion;
     }
-    //modifique duracion video para mi caso particular solo requiero de la cantidad total de segundos del video
+    /*modifique duracion video para mi caso particular solo requiero de la cantidad total de segundos del video*/
     function duracion_video_new( $path_archivo ) {
 
         $plantilla_comando_duracion = '{PATH_FFMPEG} -i {PATH_ARCHIVO} 2>&1';
@@ -398,7 +398,7 @@
         return $path_archivo_destino;
 
     }
-    //funcion modificada para que lea un directorio especifico de archivos a convertir
+    /*funcion modificada para que lea un directorio especifico de archivos a convertir*/
     function convertir_a_AVI2( $path_archivo, $path_carpeta_trabajo, &$datos_resumen ) {
 
         $plantilla_comando_convertir = '{PATH_FFMPEG} -i {PATH_ARCHIVO} -an -vcodec mpeg4 -vtag xvid -s 720x480 -b:v 400k {PATH_ARCHIVO_DESTINO} 2>>{PATH_LOG_CONVERSION}';//2>&1
@@ -409,7 +409,7 @@
             '{PATH_FFMPEG}' => FFMPEG_LIBRARY,
             '{PATH_ARCHIVO}' => $path_archivo,
             '{PATH_ARCHIVO_DESTINO}' => $path_archivo_destino,
-            '{PATH_LOG_CONVERSION}' => basename($path_archivo) . '__conversion.log'
+            '{PATH_LOG_CONVERSION}' => 'logs/' . basename($path_archivo) . '__conversion.log'
         );
         $comando_convertir = strtr($plantilla_comando_convertir, $traduccion);
         printf("comando_convertir:[%s]\n", $comando_convertir);
@@ -428,7 +428,7 @@
         return $path_archivo_destino;
 
     }
-    //funcion modificada para que pueda convertir archivos .mov y cree carpetas con sus respectivos nombres
+    /*funcion modificada para que pueda convertir archivos .mov y cree carpetas con sus respectivos nombres*/
     function convertir_de_MOV( $path_archivo, $path_carpeta_trabajo, &$datos_resumen ) {
 
         $plantilla_comando_convertir = '{PATH_FFMPEG} -i {PATH_ARCHIVO} -an -vcodec mpeg4 -vtag xvid -s 720x480 -b:v 400k {PATH_ARCHIVO_DESTINO} 2>>{PATH_LOG_CONVERSION}';//2>&1
@@ -460,11 +460,11 @@
         return $path_archivo_destino;
 
     }
-    //funcion que crea una secuencia de imagenes pasando el directorio del archivo avi a convertir a imagenes
+    /*funcion que crea una secuencia de imagenes pasando el directorio del archivo avi a convertir a imagenes*/
     function crear_imagenes_pautas( $path_archivo, $path_carpeta_trabajo, $duracion_pautas ) {
 
         for($i = 0.0; $i <= $duracion_pautas; $i = $i + 0.5){
-            $plantilla_comando_convertir = '{PATH_FFMPEG} -itsoffset -'.$i.' -i {PATH_ARCHIVO} -vcodec mjpeg -vframes 1 -an -f rawvideo -s 720x480 {PATH_ARCHIVO_DESTINO} 2>>{PATH_LOG_CONVERSION}';//2>&1
+            $plantilla_comando_convertir = '{PATH_FFMPEG} -itsoffset -'.$i.' -i {PATH_ARCHIVO} -vcodec mjpeg -vframes 1 -an -f rawvideo -s 800x600 {PATH_ARCHIVO_DESTINO} 2>>{PATH_LOG_CONVERSION}';//2>&1
             //ffmpeg -itsoffset -0.0 -i 6767_INGLES.mpg -vcodec mjpeg -vframes 1 -an -f rawvideo -s 720x480 salida_0-0.jpg
 
             printf("Convirtiendo archivo:[%s]\n", basename($path_archivo));
@@ -485,7 +485,7 @@
         return;
 
     }
-    //funcion especial para verificar si un video mpg ya tiene su correspondiente avi convertido en el directorio
+    /*funcion especial para verificar si un video mpg ya tiene su correspondiente avi convertido en el directorio*/
     function filtrar_directorio_sin_avis( $dir, $extension, $debug=false ) {
 
         $lista_archivos = array();
@@ -506,148 +506,7 @@
         if($debug) printf("Archivos A CONVERTIR(%s)[%s]\n", $extension, print_r($lista_archivos, true));
         return $lista_archivos;
     }
-
-    function procesar_archivo( $path_archivo, $path_carpeta_trabajo ) {
-
-        $info_archivo = pathinfo($path_archivo);
-        //printf("info:[%s]\n", print_r($info_archivo, true));
-
-        printf("path_carpeta_trabajo:[%s]\n", $path_carpeta_trabajo);
-        $path_archivo_resumen = $path_carpeta_trabajo . '/resumen.ini';
-
-
-
-        $datos_resumen[$info_archivo['basename']] = array(
-            'tipo_archivo' => 'ORIGINAL_CONVERTIDO_A_AVI', //'PARTE_ORIGINAL_MPG', 'CONVERTIDO_AVI'
-            'duracion_segundos' => 0,
-            'duracion_hms' => '00:00:00'
-        );
-
-        //$path_archivo_convertido_a_AVI = convertir_a_AVI($path_archivo, $path_carpeta_trabajo, $datos_resumen);
-
-        //============== DURACION DEL VIDEO ======================
-        $datos_duracion = duracion_video($path_archivo, $datos_resumen);
-        if((int)$datos_duracion['duracion_segundos'] > 0) {
-
-            $datos_resumen[$info_archivo['basename']]['duracion_segundos'] = $datos_duracion['duracion_segundos'];
-            $datos_resumen[$info_archivo['basename']]['duracion_hms'] = $datos_duracion['duracion_hms'];
-
-            $lista_archivos_a_convertir = array();
-
-            $maxima_duracion_segundos = 20000;
-            $datos_resumen[$info_archivo['basename']]['cantidad_partes'] = 0;
-            $datos_resumen[$info_archivo['basename']]['duracion_partes'] = 0;
-            $datos_resumen[$info_archivo['basename']]['partes'] = '';
-
-            //==================== DIVISION EN PARTES PEQUEÑAS =================
-            if((int)$datos_duracion['duracion_segundos'] > $maxima_duracion_segundos) {
-
-                printf("duracion_segundos excede maximo permitido. Se procede a dividir archivo...\n");
-                $cantidad_partes = 1;
-                $duracion_partes = (int)$datos_duracion['duracion_segundos'];
-                while($duracion_partes > $maxima_duracion_segundos) {
-                    $cantidad_partes++;//incremento la cantidad de partes
-                    $duracion_partes = (int)$datos_duracion['duracion_segundos'] / $cantidad_partes;
-                }
-                printf("cantidad_partes:[%d] duracion_partes:[%d]\n", $cantidad_partes, $duracion_partes);
-                $datos_resumen[$info_archivo['basename']]['cantidad_partes'] = $cantidad_partes;
-                $datos_resumen[$info_archivo['basename']]['duracion_partes'] = $duracion_partes;
-
-                printf("RESUMEN:[%s]\n", print_r($datos_resumen, true));
-
-                $plantilla_comando_dividir_video = '{PATH_FFMPEG} -ss {T0} -t {DURACION} -i {PATH_ARCHIVO_ORIGEN} -an -vcodec copy -acodec copy {PATH_ARCHIVO_DESTINO} 2>>{PATH_LOG_DIVISION}';//2>&1
-                $t0 = 0;
-                $tf = $duracion_partes;
-                for($i=0; $i<$cantidad_partes; $i++) {
-
-                    $nombre_archivo = $info_archivo['filename'] . '_parte' . ($i+1) . '.' . $info_archivo['extension'];
-                    $traduccion = array(
-                        '{PATH_FFMPEG}' => FFMPEG_LIBRARY,
-                        '{T0}' => $t0,
-                        '{DURACION}' => $tf,
-                        '{PATH_ARCHIVO_ORIGEN}' => $path_archivo,
-                        '{PATH_ARCHIVO_DESTINO}' => $info_archivo['dirname'] . '/' . $nombre_archivo,
-                        '{PATH_LOG_DIVISION}' => $nombre_archivo . '__division.log'
-                    );
-                    $comando_dividir_video = strtr($plantilla_comando_dividir_video, $traduccion);
-                    printf("comando_dividir:[%s]\n", $comando_dividir_video);
-
-                    $lista_archivos_a_convertir[] = $info_archivo['dirname'] . '/' . $nombre_archivo;
-
-                    //.avi xq ese nombre se usara para posteriormente
-                    $datos_resumen[$nombre_archivo . '.avi'] = array(
-                        'tipo_archivo' => 'PARTE_DEL_ORIGINAL',
-                        'inicio_segundos' => "$t0",
-                        'fin_segundos' => $tf
-                    );
-
-                    $datos_resumen[$info_archivo['basename']]['partes'] .= $nombre_archivo . '.avi' . ';';
-
-                    $res = ejecutar_comando($comando_dividir_video);
-
-                    $t0 = $tf;
-                    $tf += $duracion_partes;
-                }
-
-                $nuevo_nombre_archivo = $info_archivo['basename'] . '.bkp';
-                rename($path_archivo, $info_archivo['dirname'] . '/' . $nuevo_nombre_archivo);
-                printf("Archivo Original fue renombrado. Se agrego extension \".bkp\"\n");
-
-            } else {
-
-                printf("duracion_segundos OK\n");
-
-                $lista_archivos_a_convertir[] = $path_archivo;
-
-                $datos_resumen[$info_archivo['basename'] . '.avi'] = array(
-                    'tipo_archivo' => 'AVI_DEL_ORIGINAL',
-                    'inicio_segundos' => "0",
-                    'fin_segundos' => (int)$datos_duracion['duracion_segundos']
-                );
-            }
-        } else {
-
-            printf("No se obtuvo duracion del video. No se puede continuar :(\n");
-            exit;
-        }
-
-
-
-        if(!empty($resultado)) {
-
-
-
-
-            //======================== CONVERSION A FORMATO AVI ==============================
-            $plantilla_comando_convertir = '{PATH_FFMPEG} -i {PATH_ARCHIVO} -an -vcodec mpeg4 -vtag xvid -s 720x480 -b:v 400k {PATH_ARCHIVO_DESTINO} 2>>{PATH_LOG_CONVERSION}';//2>&1
-            foreach($lista_archivos_a_convertir as $path_archivo_a_convertir) {
-
-                printf("Convirtiendo archivo:[%s]\n", basename($path_archivo_a_convertir));
-                $traduccion = array(
-                    '{PATH_FFMPEG}' => FFMPEG_LIBRARY,
-                    '{PATH_ARCHIVO}' => $path_archivo_a_convertir,
-                    '{PATH_ARCHIVO_DESTINO}' => $path_carpeta_trabajo . '/' . basename($path_archivo_a_convertir) . '.avi',
-                    '{PATH_LOG_CONVERSION}' => basename($path_archivo_a_convertir) . '__conversion.log'
-                );
-                $comando_convertir = strtr($plantilla_comando_convertir, $traduccion);
-                printf("comando_convertir:[%s]\n", $comando_convertir);
-
-                $resultado_convertir = ejecutar_comando($comando_convertir);
-
-            }
-
-
-        } else {
-
-            printf("Ningun Resultado :(\n");
-            //printf("Comando:[%s]\n", $comando_duracion);
-        }
-
-        printf("RESUMEN:[%s]\n", print_r($datos_resumen, true));
-        write_ini_file($datos_resumen, $path_archivo_resumen, true);
-
-    }
-    //modificado por DAAS para que envie la duracion del video como parametro y el ROI
+    /*modificado por DAAS para que envie la duracion del video como parametro y el ROI*/
     function procesar_pautas( $path_template, $duracion_pauta, $path_carpeta_trabajo, $dx, $dy, $flagAnimacion ) {
 
         $lista_archivos_a_procesar = filtrar_directorio($path_carpeta_trabajo, 'avi');
@@ -656,48 +515,28 @@
         foreach($lista_archivos_a_procesar as $path_archivo_avi) {
 
             printf("\nBuscando pautas en [%s]\n", $path_archivo_avi);
-            //le paso la duracion del video
             $duracion_video_avi = duracion_video_new($path_archivo_avi);
 
-            $plantilla_comando_buscar_pautas = '{BUSCARPAUTA_LIBRARY} -s {DURACION_VIDEO} -t {DURACION_PAUTA} -p {PATH_IMAGEN_PLANTILLA} -D {DIRECTORIO_TRABAJO} -v {NOMBRE_ARCHIVO_VIDEO} -dx '. $dx .' -dy ' .$dy . ' -a '. $flagAnimacion .'>> log_buscar_pautas.txt';
-            $traduccion = array(
-                '{DURACION_VIDEO}' => $duracion_video_avi,
-                '{BUSCARPAUTA_LIBRARY}' => BUSCARPAUTA_LIBRARY,
-                '{DURACION_PAUTA}' => $duracion_pauta,
-                '{PATH_IMAGEN_PLANTILLA}' => $path_template,
-                '{DIRECTORIO_TRABAJO}' => dirname($path_archivo_avi) . "/",
-                '{NOMBRE_ARCHIVO_VIDEO}' => basename($path_archivo_avi)
-            );
-            $comando_buscar_pautas = strtr($plantilla_comando_buscar_pautas, $traduccion);
-            printf("comando_buscar_pautas:[%s]\n", $comando_buscar_pautas);
-            //ejecutar comando moificado ahora 2013-04-08
-            $resultado_buscar = ejecutar_comando($comando_buscar_pautas);
-        }
-    }
+            if( $duracion_video_avi > 0 ){
 
-    function procesar_pautas_segun_resumen( &$resumen_datos, $path_template, $duracion_pauta, $path_carpeta_trabajo ) {
+                $plantilla_comando_buscar_pautas = '{BUSCARPAUTA_LIBRARY} -s {DURACION_VIDEO} -t {DURACION_PAUTA} -p {PATH_IMAGEN_PLANTILLA} -D {DIRECTORIO_TRABAJO} -v {NOMBRE_ARCHIVO_VIDEO} -dx '. $dx .' -dy ' .$dy . ' -a '. $flagAnimacion .'>> logs/log_buscar_pautas.txt';
 
-        foreach($resumen_datos as $nombre_archivo => $datos_archivo) {
-            printf("archivo:[%s] => datos:[%s]\n", $nombre_archivo, print_r($datos_archivo, true));
+                $traduccion = array(
+                    '{DURACION_VIDEO}' => $duracion_video_avi,
+                    '{BUSCARPAUTA_LIBRARY}' => BUSCARPAUTA_LIBRARY,
+                    '{DURACION_PAUTA}' => $duracion_pauta,
+                    '{PATH_IMAGEN_PLANTILLA}' => $path_template,
+                    '{DIRECTORIO_TRABAJO}' => dirname($path_archivo_avi) . "/",
+                    '{NOMBRE_ARCHIVO_VIDEO}' => basename($path_archivo_avi)
+                );
 
-        }
-        $lista_archivos_a_procesar = filtrar_directorio($path_carpeta_trabajo, 'avi');
+                $comando_buscar_pautas = strtr($plantilla_comando_buscar_pautas, $traduccion);
+                printf("comando_buscar_pautas:[%s]\n", $comando_buscar_pautas);
+                $resultado_buscar = ejecutar_comando($comando_buscar_pautas);
+            }else{
 
-        foreach($lista_archivos_a_procesar as $path_archivo_avi) {
-
-            printf("\nBuscando pautas en [%s]\n", $path_archivo_avi);
-
-            $plantilla_comando_buscar_pautas = '{BUSCARPAUTA_LIBRARY} -t {DURACION_PAUTA} -p {PATH_IMAGEN_PLANTILLA} -D {DIRECTORIO_TRABAJO} -v {NOMBRE_ARCHIVO_VIDEO} -dx 60 -dy 355 >> log_buscar_pautas.txt';
-            $traduccion = array(
-                '{BUSCARPAUTA_LIBRARY}' => BUSCARPAUTA_LIBRARY,
-                '{DURACION_PAUTA}' => $duracion_pauta,
-                '{PATH_IMAGEN_PLANTILLA}' => $path_template,
-                '{DIRECTORIO_TRABAJO}' => dirname($path_archivo_avi),
-                '{NOMBRE_ARCHIVO_VIDEO}' => basename($path_archivo_avi)
-            );
-            $comando_buscar_pautas = strtr($plantilla_comando_buscar_pautas, $traduccion);
-            printf("comando_buscar_pautas:[%s]\n", $comando_buscar_pautas);
-            $resultado_buscar = ejecutar_comando($comando_buscar_pautas);
+                printf("\nDuracion igual a 0\n");
+            }
         }
     }
 
@@ -825,48 +664,16 @@
 
             return;
         }
-        //buscar FELIX
-        if($argv[1] == '--buscar' && $argv[2] == '-p' && $argv[4] == '-t') {
-
-            $path_template = $argv[3];
-            $duracion_pauta = $argv[5];
-
-            if(isset($argv[6]) && $argv[6] == '--ayer') {
-                $fecha_ayer = fechaAyer('ANHO_MES_DIA');
-                $path_carpeta_trabajo = getcwd() . '/' . $fecha_ayer;
-            } else {
-                $path_carpeta_trabajo = getcwd();
-            }
-            //============ BUSCAR PAUTAS ======================================
-            printf("\nIniciando procesamiento de pautas...\n");
-            printf("CarpetaTrabajo:[%s]\n\n", $path_carpeta_trabajo);
-            procesar_pautas($path_template, $duracion_pauta, $path_carpeta_trabajo);
-
-            return;
-        }
         //agregado mucho despues. Convierte los archivos de un directorio especifico que se le pasa con -p
         if($argv[1] == '--convertir' && $argv[2] == '-p') {
 
             $path_archivo_origen = $argv[3];
-            $lista_archivos_a_procesar = filtrar_directorio($path_archivo_origen, 'mov', true);
+            $lista_archivos_a_procesar = filtrar_directorio($path_archivo_origen, 'mpg', true);
 
             //$fecha_ayer = fechaAyer('ANHO_MES_DIA');
             $path_carpeta_trabajo = $path_archivo_origen; //. '/' . $fecha_ayer;
             printf("PathCarpetaORIGEN:[%s]\n", $path_archivo_origen);
             printf("PathCarpetaTrabajo:[%s]\n", $path_carpeta_trabajo);
-            //Si ya existe la carpeta, la renombramos..
-            /*if(file_exists($path_carpeta_trabajo)) {
-                $path_bkp_carpeta_trabajo = $path_carpeta_trabajo . '__BKP_' . time();
-                @rename($path_carpeta_trabajo, $path_bkp_carpeta_trabajo);
-            }
-
-            //Creamos carpeta de trabajo
-            if(mkdir($path_carpeta_trabajo)) {
-                printf("Carpeta de Trabajo creada con Exito\n");
-            } else {
-                printf("No se pudo crear Carpeta de Trabajo. Finalizamos\n");
-                exit;
-            }*/
 
             $path_archivo_resumen = $path_carpeta_trabajo . '/resumen.ini';
             $datos_resumen = array();
@@ -878,8 +685,9 @@
                 printf("Procesando: [%s]\n", basename($path_archivo_a_procesar));
                 printf("====================================================\n\n");
                 $path_archivo_convertido = convertir_a_AVI2($path_archivo_a_procesar, $path_carpeta_trabajo, $datos_resumen);
-                //dividir_archivo($path_archivo_convertido, $path_carpeta_trabajo, $datos_resumen);
+
             }
+
             print_r($datos_resumen);
 
             write_ini_file($datos_resumen, $path_archivo_resumen, true);
@@ -910,7 +718,7 @@
             $path_archivo_origen = $argv[2];
             $duracion_pauta = $argv[4];
             $path_carpeta_trabajo = $path_archivo_origen;
-            $path_archivo_a_procesar = filtrar_directorio($path_archivo_origen,'avi',true);
+            $path_archivo_a_procesar = filtrar_directorio($path_archivo_origen, 'mpg',true);
 
             foreach($path_archivo_a_procesar as $path_archivo_origen){
 
@@ -921,7 +729,7 @@
         //convertirtodo recibe con -p donde estan los archivos almacenados en carpetas
         if($argv[1] == '--convertirtodo' && $argv[2] == '-p') {
             $path_archivo_origen = $argv[3];
-            //agregado
+
             $lista_carpetas_a_procesar = filtrar_carpetas($path_archivo_origen,true);
 
             foreach($lista_carpetas_a_procesar as $path_archivo_origen){
@@ -945,6 +753,32 @@
 
                 write_ini_file($datos_resumen, $path_archivo_resumen, true);
             }
+
+            return;
+        }
+        //convertirtodo recibe con -p donde estan los archivos almacenados en carpetas
+        if($argv[1] == '--convertirpath' && $argv[2] == '-p') {
+
+            $path_archivo_origen = $argv[3];
+            $lista_archivos_a_procesar = filtrar_directorio_sin_avis($path_archivo_origen, 'mpg', true);
+            $path_carpeta_trabajo = $path_archivo_origen;
+            printf("PathCarpetaORIGEN:[%s]\n", $path_archivo_origen);
+            printf("PathCarpetaTrabajo:[%s]\n", $path_carpeta_trabajo);
+            $path_archivo_resumen = $path_carpeta_trabajo . '/resumen.ini';
+            $datos_resumen = array();
+
+            //============ CONVERTIR ARCHIVOS ===========================
+            foreach($lista_archivos_a_procesar as $path_archivo_a_procesar) {
+
+                printf("\n====================================================\n");
+                printf("Procesando: [%s]\n", basename($path_archivo_a_procesar));
+                printf("====================================================\n\n");
+                $path_archivo_convertido = convertir_a_AVI2($path_archivo_a_procesar, $path_carpeta_trabajo, $datos_resumen);
+                //dividir_archivo($path_archivo_convertido, $path_carpeta_trabajo, $datos_resumen);
+            }
+            print_r($datos_resumen);
+
+            write_ini_file($datos_resumen, $path_archivo_resumen, true);
 
             return;
         }
@@ -979,7 +813,7 @@
         if($argv[1] == '--reporte'){
             $path_carpeta_trabajo = 'C:\Users\USER\ENTERMOVIL\DAAS\PROYECTOS\TVCHAT\PAUTAS\AFORTUNADOS1\PAUTAS';//FIJO
             //$fechaEnviar = date("Y-m-d");
-            $fechaEnviar = "2014-09-16"; //MODIFICADO
+            $fechaEnviar = "2014-10-09"; //MODIFICADO
             $plantillasPautas = obtenerDatosSpots( $fechaEnviar );
             print_r( $plantillasPautas );
             //exit;
@@ -1012,7 +846,7 @@
                                         //PROCESO LAS PAUTAS CON LOS DIAS REQUERIDOS
                                         if( is_dir( $canaldeCarpeta .'/'.$days ) ){
 
-                                            procesar_pautas($pauta['PATHPLANTILLA'], $pauta['DURACION'], $canaldeCarpeta .'/'.$days,$pauta['DELTAX'],$pauta['DELTAY'],2);
+                                            procesar_pautas($pauta['PATHPLANTILLA'], $pauta['DURACION'], $canaldeCarpeta .'/'. $days, $pauta['DELTAX'], $pauta['DELTAY'], 2);
 
                                             $reporte_del_dia = cargar_datos( $canaldeCarpeta .'/'.$days );
                                             $reporte[$nombrePauta][ 'DIA' ] = substr($days, 0, 10); //MODIFICADO
@@ -1070,8 +904,106 @@
             print_r($reporte);
             printf("La fecha es -->(%s)\n",$fechaEnviar);
            cargarBD( $reporte );
-            echo "\nSE termino Correctamente\n";
+            echo "\nSe termino Correctamente\n";
             return;
+
+        }
+        if($argv[1] == '--config' && $argv[2] == '-dia' ){
+
+            $fechaActual = isset( $argv[3] )? $argv[3]: date("Y-m-d");
+            printf( "\nDia: (%s)\n", $fechaActual );
+            $generar_config_pautas_procesamiento = consulta( 'CONFIGURACIONES_ACTIVAS', array( 'fecha' => $fechaActual  ) );
+            $lista_archivos_a_procesar = array();
+
+            foreach( $generar_config_pautas_procesamiento as $indice => $datos ){
+
+                $intervalo = $datos['hora_inicio'];
+                $formato = formatear_archivo_video( $datos['formato'], $intervalo);
+
+                while( $intervalo <= $datos['hora_fin'] ){
+
+                    $lista_archivos_a_procesar[$intervalo]['fecha'] = $fechaActual;
+                    $lista_archivos_a_procesar[$intervalo]['grabacion'] = 0;
+                    $lista_archivos_a_procesar[$intervalo]['conversion'] = 0;
+                    $lista_archivos_a_procesar[$intervalo]['deteccion'] = 0;
+                    $lista_archivos_a_procesar[$intervalo]['archivo'] = $formato;
+                    $lista_archivos_a_procesar[$intervalo]['canal'] = $datos['canal'];
+                    $lista_archivos_a_procesar[$intervalo]['alias'] = $datos['alias'];
+
+                    $intervalo = segundos2hms( hms2segundos($intervalo) + hms2segundos( $datos['duracion'] ) );
+                    $formato = formatear_archivo_video( $datos['formato'], $intervalo);
+
+                }
+
+                $status = consulta( 'INSERTAR_PAUTAS_PROCESAMIENTO', $lista_archivos_a_procesar );
+
+            }
+
+            return;
+
+        }
+        if($argv[1] == '--config' && $argv[2] == '-activas' ){
+
+            $fechaActual = isset( $argv[3] )? $argv[3]: date("Y-m-d");
+            printf( "\nDia: (%s)\n", $fechaActual );
+            $configuraciones_controlar = consulta( 'CONFIGURACIONES_ACTIVAS', array( 'fecha' => $fechaActual  ) );
+            $lista_archivos_a_procesar = array();
+
+            foreach( $configuraciones_controlar as $indice => $configuracion ){
+
+                echo "continuara...";
+            }
+
+            return;
+
+        }
+        if( $argv[1] == '--config' && $argv[2] == '-pauta' && $argv[3]== '-canal'
+            && $argv[5] == '-hora_inicio' && $argv[7] == '-fecha' && $argv[9] == '-duracion' && $argv[11] == '-alias' ){
+
+            $path_fijo = 'Y:\\';
+            $canal = $argv[4];
+            $hora_evaluar = $argv[6];
+            $fecha = $argv[8];
+            $duracion = $argv[10];
+            $alias = $argv[12];
+            $indice = 0;
+
+            $path_archivo_a_procesar = $path_fijo . $canal;
+            $archivos_a_procesar = consulta( 'GET_ARCHIVOS_PROCESAR', array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias ) );
+            print_r($archivos_a_procesar);
+
+            while( true ){
+
+                $hora_actual = date( "H:m:s");
+                printf("hora actual (%s) segundos\n", $hora_actual);
+                printf("hora a evaluar (%s) segundos\n", $hora_evaluar );
+
+                if( $hora_actual < $hora_evaluar  ){
+
+                    $diferencia_tiempo = hms2segundos($hora_actual) + hms2segundos($duracion) - hms2segundos($hora_evaluar);
+                    printf("dormir (%s) segundos", $diferencia_tiempo);
+                    sleep( $diferencia_tiempo );
+                }else{
+
+                    $archivo = $path_archivo_a_procesar . '/' . $archivos_a_procesar[$indice]['archivo'] . '.mpg';
+                    printf("\narchivo (%s)\n", $archivo);
+                    $duracion_video = duracion_video_new($archivo);
+                    printf("\nduracion_video (%s)\n", $duracion_video);
+                    $duracion_esperada = hms2segundos($duracion) - 3*60;
+                    if( $duracion_video >= $duracion_esperada ){
+
+                        $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 1 );
+                        $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
+                    }else{
+
+                        $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 2 );
+                        $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
+                    }
+
+                    $hora_evaluar = segundos2hms( hms2segundos($hora_evaluar) + hms2segundos($duracion) );
+                    $indice++;
+                }
+            }
 
         }
         if($argv[1] == '--reportepautas'){
@@ -1286,9 +1218,111 @@
             echo "\nSE termino Correctamente\n";
             return;
         }
+        if($argv[1] == '--prueba'){
+
+            $text = "Hola sy diego tengo 23 aï¿½os y busco novia y amista y xeso y pasa mi numero 0982407755 para la chica y nenita y nena y mujer sy de villarrica";
+            echo $text."\n";
+            $text_nuevo = preg_replace('/ï¿½/', 'nh', $text);
+            echo 'mirar el texto: ' . $text_nuevo;
+        }
 
         help();
         printf("\n");
     }
 
     analizar_parametros( $argv );
+
+    function consulta( $accion, $datos = null ){
+
+        global $db;
+        $resultado = null;
+
+        if( $accion == 'CONFIGURACIONES_ACTIVAS' ){
+
+            $sql = "select *
+                    from configuracion_pautas
+                    where dia_fin >= ? and dia_inicio <= ?";
+
+            $rs = $db->fetchAll( $sql, array( $datos['fecha'], $datos['fecha'] ) );
+
+            //si se retorna filas entonces se debe crear nuevas entradas en la tabla configuracion_pautas_procesamiento
+            if( !empty( $rs ) ){
+
+                foreach( $rs as $fila ){
+
+                    $resultado[] = (array)$fila;
+                }
+            }
+
+        }
+        elseif( $accion == 'INSERTAR_PAUTAS_PROCESAMIENTO' ){
+
+            foreach( $datos as $indice => $dato  ){
+
+                try{
+
+                    $resultado = $db->insert( 'configuracion_pautas_procesamiento', $dato );
+
+                }catch( Exception $e ) {
+
+                    echo 'No se pudo insertar a la base de datos: ',  $e->getMessage(), "\n";
+                }
+            }
+        }
+        elseif( $accion == 'GET_ARCHIVOS_PROCESAR' ){
+
+            $sql = "select CPP.archivo
+                    from configuracion_pautas_procesamiento CPP
+                    where CPP.fecha = ? and CPP.canal = ? and CPP.alias = ?
+                    order by 1";
+
+            $rs = $db->fetchAll( $sql, array( $datos['fecha'], $datos['canal'], $datos['alias'] ) );
+
+            //si se retorna filas entonces se debe crear nuevas entradas en la tabla configuracion_pautas_procesamiento
+            if( !empty( $rs ) ){
+
+                foreach( $rs as $fila ){
+
+                    $resultado[] = (array)$fila;
+                }
+            }
+        }
+        elseif( $accion == 'ACTUALIZAR_ESTADO_ARCHIVO' ){
+
+            $data = array(
+
+                'grabacion' => $datos['estado'],
+
+            );
+
+            $where = array(
+
+                'alias = ?' => $datos['alias'],
+                'canal = ?' => $datos['canal'],
+                'fecha = ?' => $datos['fecha'],
+                'archivo = ?' => $datos['archivo']
+
+            );
+
+            $resultado = $db->update( 'configuracion_pautas_procesamiento', $data, $where );
+
+            echo 'actualizado';
+
+        }
+
+        return $resultado;
+    }
+
+    function formatear_archivo_video( $formato, $dato ){
+
+        $dato_formateado = null;
+
+        if( $formato == "aaaammdd-hhmmss" ){
+
+            $partes = explode( ":", $dato );
+            $dato = $partes[0].$partes[1].$partes[2];
+            $dato_formateado = date("Ymd") . '-' . $dato;
+        }
+
+        return $dato_formateado;
+    }
