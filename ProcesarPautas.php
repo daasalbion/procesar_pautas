@@ -908,6 +908,7 @@
             return;
 
         }
+        //genera la secuencia de procesamiento de acuerdo al dia actual o al dia pasado como parametro
         if($argv[1] == '--config' && $argv[2] == '-dia' ){
 
             $fechaActual = isset( $argv[3] )? $argv[3]: date("Y-m-d");
@@ -948,6 +949,7 @@
             printf( "\nDia: (%s)\n", $fechaActual );
             $configuraciones_controlar = consulta( 'CONFIGURACIONES_ACTIVAS', array( 'fecha' => $fechaActual  ) );
             $lista_archivos_a_procesar = array();
+            print_r($configuraciones_controlar);
 
             foreach( $configuraciones_controlar as $indice => $configuracion ){
 
@@ -957,54 +959,192 @@
             return;
 
         }
-        if( $argv[1] == '--config' && $argv[2] == '-pauta' && $argv[3]== '-canal'
-            && $argv[5] == '-hora_inicio' && $argv[7] == '-fecha' && $argv[9] == '-duracion' && $argv[11] == '-alias' ){
+        if( $argv[1] == '--config' && $argv[2] == '-pauta' && $argv[3]== '-canal' && $argv[5] == '-hora_inicio' &&
+            $argv[7] == '-fecha' && $argv[9] == '-duracion' && $argv[11] == '-alias' && $argv[13] == '-hora_fin' ){
 
-            $path_fijo = 'Y:\\';
             $canal = $argv[4];
-            $hora_evaluar = $argv[6];
+            printf("\ncanal (%s)\n", $canal);
+            $hora_inicio = $argv[6];
+            printf("hora_inicio (%s)\n", $hora_inicio);
             $fecha = $argv[8];
+            printf("fecha (%s)\n", $fecha);
             $duracion = $argv[10];
+            printf("duracion (%s)\n", $duracion);
             $alias = $argv[12];
+            printf("alias (%s)\n", $alias);
+            $hora_fin = $argv[14];
+
+            //convertimos adecuadamente la hora a evaluar
+            $hora_evaluar = segundos2hms( hms2segundos($hora_inicio) + hms2segundos( $duracion ) );
+            printf("hora_evaluar (%s)\n", $hora_evaluar);
+
             $indice = 0;
+            $path_fijo = 'Y:\\';
 
             $path_archivo_a_procesar = $path_fijo . $canal;
             $archivos_a_procesar = consulta( 'GET_ARCHIVOS_PROCESAR', array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias ) );
+            $duracion_esperada = hms2segundos($duracion) - 3*60;
+
             print_r($archivos_a_procesar);
 
             while( true ){
 
-                $hora_actual = date( "H:m:s");
-                printf("hora actual (%s) segundos\n", $hora_actual);
+                $hora_actual = date( "H:i:s");
+                printf("\nhora actual (%s) segundos\n", $hora_actual);
                 printf("hora a evaluar (%s) segundos\n", $hora_evaluar );
+                printf("hora_fin (%s)\n", $hora_fin);
 
-                if( $hora_actual < $hora_evaluar  ){
+                //hora_actual < hora_fin
+                if( strcmp($hora_actual, $hora_fin) < 0 ){
+                    //hora_actual < hora_evaluar
+                    if( strcmp($hora_actual, $hora_evaluar) < 0 ){
 
-                    $diferencia_tiempo = hms2segundos($hora_actual) + hms2segundos($duracion) - hms2segundos($hora_evaluar);
-                    printf("dormir (%s) segundos", $diferencia_tiempo);
-                    sleep( $diferencia_tiempo );
-                }else{
+                        $diferencia_tiempo =  hms2segundos( $hora_evaluar ) - hms2segundos( $hora_actual );
+                        printf("dormir (%s) segundos\n", $diferencia_tiempo);
+                        sleep( $diferencia_tiempo );
 
-                    $archivo = $path_archivo_a_procesar . '/' . $archivos_a_procesar[$indice]['archivo'] . '.mpg';
-                    printf("\narchivo (%s)\n", $archivo);
-                    $duracion_video = duracion_video_new($archivo);
-                    printf("\nduracion_video (%s)\n", $duracion_video);
-                    $duracion_esperada = hms2segundos($duracion) - 3*60;
-                    if( $duracion_video >= $duracion_esperada ){
-
-                        $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 1 );
-                        $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
                     }else{
 
-                        $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 2 );
-                        $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
-                    }
+                        $archivo = $path_archivo_a_procesar . '/' . $archivos_a_procesar[$indice]['archivo'] . '.mpg';
+                        printf("archivo (%s)\n", $archivo);
 
-                    $hora_evaluar = segundos2hms( hms2segundos($hora_evaluar) + hms2segundos($duracion) );
-                    $indice++;
+                        /*
+                         * en el caso de que el nombre del archivo sea diferente del que se espera ejemplo, con el enutv -> (20141014-143219.mpg)
+                         * se espera (20141014-140000.mpg)
+                        */
+
+                        if( !is_file( $archivo ) ){
+
+                            $archivos = filtrar_directorio( $path_archivo_a_procesar, 'mpg', true );
+
+                            foreach( $archivos as $path ){
+
+                                $cadena = substr( basename( $path ), 0, -8 );
+                                printf("cadena (%s)\n", $cadena);
+                                $archivo_verificar = substr( $archivos_a_procesar[$indice]['archivo'], 0, -4 );
+                                printf("archivo_verificar (%s)\n", $archivo_verificar);
+
+                                if( strcmp ($archivo_verificar , $cadena ) == 0 ){
+
+                                    $archivo = $path;
+                                    break;
+                                }
+                            }
+                        }
+
+                        $duracion_video = duracion_video_new($archivo);
+
+                        if( $duracion_video >= $duracion_esperada ){
+
+                            $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 1 );
+                            $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
+                        }else{
+
+                            $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 2 );
+                            $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
+                        }
+
+                        $hora_evaluar = segundos2hms( hms2segundos($hora_evaluar) + hms2segundos($duracion) );
+                        $indice++;
+                    }
+                }else{
+
+                    return;
                 }
             }
+        }
+        if( $argv[1] == '--config' && $argv[2] == '-conversorpauta' && $argv[3]== '-canal' && $argv[5] == '-fecha' && $argv[7] == '-alias' ){
 
+            $canal = $argv[4];
+            printf("\ncanal (%s)\n", $canal);
+            $fecha = $argv[6];
+            printf("fecha (%s)\n", $fecha);
+            $alias = $argv[8];
+            printf("alias (%s)\n", $alias);
+
+            $path_fijo_pautas = 'Y:\\';
+            $path_fijo_pautas_convertidas = 'C:/Users/USER/ENTERMOVIL/DAAS/PROYECTOS/TVCHAT/PAUTAS/AFORTUNADOS1/PAUTAS/SNT';
+            $nombre_dias = array('Sunday' => 'DOMINGO', 'Monday' => 'LUNES', 'Tuesday' => 'MARTES' ,'Wednesday'=>'MIERCOLES','Thursday'=>'JUEVES','Friday' => 'VIERNES', 'Saturday'=>'SABADO');
+            $path_archivo_a_procesar = $path_fijo_pautas .  $canal;
+            $nombre_dia = $nombre_dias[date ("l", strtotime($fecha))];
+            $path_destino_archivo_convertido = $path_fijo_pautas_convertidas . '/' . $fecha . '_' . $nombre_dia;
+
+            if( !is_dir( $path_destino_archivo_convertido ) ){
+
+                if( mkdir( $path_destino_archivo_convertido ) ){
+
+                    printf("carpeta (%s) creada\n", basename($path_destino_archivo_convertido));
+
+                }else{
+
+                    printf("no se pudo crear el archivo\n");
+                }
+            }else{
+
+                printf("ya existe la carpeta\n");
+            }
+
+            while( true ){
+
+                $archivos_a_procesar = consulta( 'GET_ARCHIVO_CONVERTIR', array( 'fecha' => $fecha, 'canal' => $canal ) );
+                print_r( $archivos_a_procesar );
+
+                if( !is_null( $archivos_a_procesar ) ){
+
+                    $archivo = $path_archivo_a_procesar .'/'.$archivos_a_procesar['archivo'] . '.mpg';
+                    printf("archivo (%s)\n", $archivo);
+
+                    /*
+                     * en el caso de que el nombre del archivo sea diferente del que se espera ejemplo, con el enutv -> (20141014-143219.mpg)
+                     * se espera (20141014-140000.mpg)
+                    */
+
+                    if( !is_file( $archivo ) ){
+
+                        printf("no existe el archivo en el path (%s)\n", $archivo);
+                        $archivos = filtrar_directorio( $path_archivo_a_procesar, 'mpg', true );
+
+                        foreach( $archivos as $path ){
+
+                            $cadena = substr( basename( $path ), 0, -8 );
+                            printf("cadena (%s)\n", $cadena);
+                            $archivo_verificar = substr( $archivos_a_procesar[$indice]['archivo'], 0, -4 );
+                            printf("archivo_verificar (%s)\n", $archivo_verificar);
+
+                            if( strcmp ($archivo_verificar , $cadena ) == 0 ){
+
+                                $archivo = $path;
+                                break;
+                            }
+                        }
+                    }
+
+                    printf("existe el archivo en el path (%s)\n", $archivo);
+
+                    if( is_file( $archivo ) ){
+
+                        $datos_resumen = array();
+                        $conversion = convertir_a_AVI2( $archivo, $path_destino_archivo_convertido, $datos_resumen );
+
+                        if( isset( $conversion ) ){
+
+                            $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar['archivo'], 'estado' => 1 );
+                            $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
+                        }else{
+                            $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar['archivo'], 'estado' => 2 );
+                            $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
+                        }
+                    }else{
+                        $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar['archivo'], 'estado' => 2 );
+                        $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
+                    }
+
+                }else{
+
+                    printf("dormir 32 minutos...\n");
+                    sleep(32*60);
+                }
+            }
         }
         if($argv[1] == '--reportepautas'){
 
@@ -1306,7 +1446,48 @@
 
             $resultado = $db->update( 'configuracion_pautas_procesamiento', $data, $where );
 
-            echo 'actualizado';
+            print_r($datos);
+
+        }
+        elseif( $accion == 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION' ){
+
+            $data = array(
+
+                'conversion' => $datos['estado'],
+
+            );
+
+            $where = array(
+
+                'alias = ?' => $datos['alias'],
+                'canal = ?' => $datos['canal'],
+                'fecha = ?' => $datos['fecha'],
+                'archivo = ?' => $datos['archivo']
+
+            );
+
+            $resultado = $db->update( 'configuracion_pautas_procesamiento', $data, $where );
+
+            print_r($datos);
+
+        }
+        elseif( $accion == 'GET_ARCHIVO_CONVERTIR' ){
+
+            $sql = "select cpp.*
+            from configuracion_pautas_procesamiento cpp
+            where cpp.fecha = ? and cpp.grabacion = 1 and cpp.conversion = 0 and cpp.canal = ?
+            order by 1,2,6
+            limit 1";
+
+            $rs = $db->fetchAll( $sql, array( $datos['fecha'], $datos['canal'] ) );
+
+            if( !empty( $rs ) ){
+
+                foreach( $rs as $fila ){
+
+                    $resultado = (array)$fila;
+                }
+            }
 
         }
 
