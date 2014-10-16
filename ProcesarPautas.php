@@ -978,6 +978,10 @@
             $hora_evaluar = segundos2hms( hms2segundos($hora_inicio) + hms2segundos( $duracion ) );
             printf("hora_evaluar (%s)\n", $hora_evaluar);
 
+            //convertimos adecuadamente la hora fin y le agregamos 2 minutos como reserva
+            $hora_fin = segundos2hms( hms2segundos($hora_fin) + hms2segundos( $duracion ) + 2*60 );
+            printf("hora_fin (%s)\n", $hora_fin);
+
             $indice = 0;
             $path_fijo = 'Y:\\';
 
