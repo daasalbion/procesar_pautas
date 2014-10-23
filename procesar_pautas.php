@@ -976,17 +976,25 @@
         //genera la secuencia de procesamiento de acuerdo al dia actual o al dia pasado como parametro
         if($argv[1] == '--config' && $argv[2] == '-dia' ){
 
+            $logger->info( "[--config][-dia]" );
+            //si no se pasa el dia como parametro entonces se obtiene el dia actual
             $fechaActual = isset( $argv[3] )? $argv[3]: date("Y-m-d");
-            printf( "\nDia: (%s)\n", $fechaActual );
+            $logger->info( "dia: " . $fechaActual );
             $generar_config_pautas_procesamiento = consulta( 'CONFIGURACIONES_ACTIVAS', array( 'fecha' => $fechaActual  ) );
             $lista_archivos_a_procesar = array();
 
             foreach( $generar_config_pautas_procesamiento as $indice => $datos ){
 
                 $intervalo = $datos['hora_inicio'];
+                $hora_fin = segundos2hms( hms2segundos( $datos['duracion'] ) + hms2segundos($datos['hora_fin']) );
                 $formato = formatear_archivo_video( $datos['formato'], $intervalo);
 
-                while( $intervalo <= $datos['hora_fin'] ){
+                $logger->info( "hora inicio: $intervalo" );
+                $logger->info( "hora fin: $hora_fin" );
+                $logger->info( "formato: $formato " );
+
+                //$intervalo < $hora_fin
+                while( strcmp($intervalo, $hora_fin) > 0 ){
 
                     $lista_archivos_a_procesar[$intervalo]['fecha'] = $fechaActual;
                     $lista_archivos_a_procesar[$intervalo]['grabacion'] = 0;
@@ -998,9 +1006,11 @@
 
                     $intervalo = segundos2hms( hms2segundos($intervalo) + hms2segundos( $datos['duracion'] ) );
                     $formato = formatear_archivo_video( $datos['formato'], $intervalo);
+                    $logger->info("siguiente hora: " . $intervalo );
 
                 }
 
+                $logger->info("lista de archivos para configuracion: " . print_r($lista_archivos_a_procesar,true) );
                 $status = consulta( 'INSERTAR_PAUTAS_PROCESAMIENTO', $lista_archivos_a_procesar );
 
             }
@@ -1466,6 +1476,8 @@
     function consulta( $accion, $datos = null ){
 
         global $db;
+        global $logger;
+
         $resultado = null;
 
         if( $accion == 'CONFIGURACIONES_ACTIVAS' ){
@@ -1483,6 +1495,11 @@
 
                     $resultado[] = (array)$fila;
                 }
+
+                $logger->info("resultado: " . print_r( $resultado, true ));
+            }else{
+
+                $logger->info("resultset vacio ");
             }
 
         }
