@@ -546,7 +546,7 @@
     function crear_imagenes_pautas( $path_archivo, $path_carpeta_trabajo, $duracion_pautas ) {
 
         for($i = 0.0; $i <= $duracion_pautas; $i = $i + 0.5){
-            $plantilla_comando_convertir = '{PATH_FFMPEG} -itsoffset -'.$i.' -i {PATH_ARCHIVO} -vcodec mjpeg -vframes 1 -an -f rawvideo -s 800x600 {PATH_ARCHIVO_DESTINO} 2>>{PATH_LOG_CONVERSION}';//2>&1
+            $plantilla_comando_convertir = '{PATH_FFMPEG} -itsoffset -'.$i.' -i {PATH_ARCHIVO} -vcodec mjpeg -vframes 1 -an -f rawvideo -s 720x480 {PATH_ARCHIVO_DESTINO} 2>>{PATH_LOG_CONVERSION}';//2>&1
             //ffmpeg -itsoffset -0.0 -i 6767_INGLES.mpg -vcodec mjpeg -vframes 1 -an -f rawvideo -s 720x480 salida_0-0.jpg
 
             printf("Convirtiendo archivo:[%s]\n", basename($path_archivo));
@@ -1171,7 +1171,7 @@
                                 $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
                             }
 
-                            $hora_evaluar = segundos2hms( hms2segundos($hora_inicio) + hms2segundos( $duracion ) + 2*60 );
+                            $hora_evaluar = segundos2hms( hms2segundos($hora_evaluar) + hms2segundos( $duracion ) + 2*60 );
                             $logger->info( "nueva hora a evaluar: $hora_evaluar" );
                             $indice++;
                         }
