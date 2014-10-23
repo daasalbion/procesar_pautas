@@ -256,27 +256,45 @@
         return $resultado;
     }
 
-    function ejecutar_configuracion( $configuracion ){
+    function ejecutar_configuracion( $accion, $configuracion ){
 
         global $logger;
-        /*$argv[1] == '--config' && $argv[2] == '-pauta' && $argv[3]== '-canal' && $argv[5] == '-hora_inicio' &&
-        $argv[7] == '-fecha' && $argv[9] == '-duracion' && $argv[11] == '-alias' && $argv[13] == '-hora_fin'*/
 
-        $plantilla_comando_buscar_pautas = 'php -q {PROCESAR_PAUTAS} --config -pauta -canal {CANAL} -hora_inicio {HORA_INICIO} -fecha {FECHA} -duracion {DURACION} -alias {ALIAS} -hora_fin {HORA_FIN} 2>> logs/ejecutar_comando.txt';
+        if( $accion == 'CONTROL_GRABACION' ){
 
-        $traduccion = array(
-            '{PROCESAR_PAUTAS}' => PROCESAR_PAUTAS,
-            '{CANAL}' => $configuracion['canal'],
-            '{HORA_INICIO}' => $configuracion['hora_inicio'],
-            '{FECHA}' => $configuracion['fecha'],
-            '{DURACION}' => $configuracion['duracion'],
-            '{ALIAS}' => $configuracion['alias'],
-            '{HORA_FIN}' => $configuracion['hora_fin']
-        );
+            $plantilla_comando = 'php -q {PROCESAR_PAUTAS} --config -grabacion -canal {CANAL} -hora_inicio {HORA_INICIO} -fecha {FECHA} -duracion {DURACION} -alias {ALIAS} -hora_fin {HORA_FIN} 2>> logs/ejecutar_comando.txt';
 
-        $comando_buscar_pautas = strtr($plantilla_comando_buscar_pautas, $traduccion);
-        //$logger->info( 'ejecutar_configuracion: ' . $comando_buscar_pautas );
-        $resultado = exec_bg($comando_buscar_pautas);
+            $traduccion = array(
+                '{PROCESAR_PAUTAS}' => PROCESAR_PAUTAS,
+                '{CANAL}' => $configuracion['canal'],
+                '{HORA_INICIO}' => $configuracion['hora_inicio'],
+                '{FECHA}' => $configuracion['fecha'],
+                '{DURACION}' => $configuracion['duracion'],
+                '{ALIAS}' => $configuracion['alias'],
+                '{HORA_FIN}' => $configuracion['hora_fin']
+            );
+
+        }else if( $accion == 'CONTROL_CONVERSION' ){
+
+            $plantilla_comando = 'php -q {PROCESAR_PAUTAS} --config -conversorpauta -canal {CANAL} -fecha {FECHA} -alias {ALIAS} -duracion {DURACION} -hora_fin {HORA_FIN} 2>> logs/ejecutar_comando2.txt';
+
+            $traduccion = array(
+
+                '{PROCESAR_PAUTAS}' => PROCESAR_PAUTAS,
+                '{CANAL}' => $configuracion['canal'],
+                '{FECHA}' => $configuracion['fecha'],
+                '{ALIAS}' => $configuracion['alias'],
+                '{DURACION}' => $configuracion['duracion'],
+                '{HORA_FIN}' => $configuracion['hora_fin'],
+            );
+
+        }
+
+        $logger->info( "accion solicitada: $accion" );
+        $comando_ejecutar = strtr( $plantilla_comando, $traduccion );
+        $logger->info( "ejecutar_configuracion: $comando_ejecutar" );
+
+        $resultado = exec_bg( $comando_ejecutar );
 
         return $resultado;
 
@@ -983,36 +1001,42 @@
             $generar_config_pautas_procesamiento = consulta( 'CONFIGURACIONES_ACTIVAS', array( 'fecha' => $fechaActual  ) );
             $lista_archivos_a_procesar = array();
 
-            foreach( $generar_config_pautas_procesamiento as $indice => $datos ){
+            if( !empty( $generar_config_pautas_procesamiento ) ){
 
-                $intervalo = $datos['hora_inicio'];
-                $hora_fin = segundos2hms( hms2segundos( $datos['duracion'] ) + hms2segundos($datos['hora_fin']) );
-                $formato = formatear_archivo_video( $datos['formato'], $intervalo);
+                foreach( $generar_config_pautas_procesamiento as $indice => $datos ){
 
-                $logger->info( "hora inicio: $intervalo" );
-                $logger->info( "hora fin: $hora_fin" );
-                $logger->info( "formato: $formato " );
-
-                //$intervalo < $hora_fin
-                while( strcmp($intervalo, $hora_fin) > 0 ){
-
-                    $lista_archivos_a_procesar[$intervalo]['fecha'] = $fechaActual;
-                    $lista_archivos_a_procesar[$intervalo]['grabacion'] = 0;
-                    $lista_archivos_a_procesar[$intervalo]['conversion'] = 0;
-                    $lista_archivos_a_procesar[$intervalo]['deteccion'] = 0;
-                    $lista_archivos_a_procesar[$intervalo]['archivo'] = $formato;
-                    $lista_archivos_a_procesar[$intervalo]['canal'] = $datos['canal'];
-                    $lista_archivos_a_procesar[$intervalo]['alias'] = $datos['alias'];
-
-                    $intervalo = segundos2hms( hms2segundos($intervalo) + hms2segundos( $datos['duracion'] ) );
+                    $intervalo = $datos['hora_inicio'];
+                    $hora_fin = segundos2hms( hms2segundos( $datos['duracion'] ) + hms2segundos($datos['hora_fin']) );
                     $formato = formatear_archivo_video( $datos['formato'], $intervalo);
-                    $logger->info("siguiente hora: " . $intervalo );
+
+                    $logger->info( "hora inicio: $intervalo" );
+                    $logger->info( "hora fin: $hora_fin" );
+                    $logger->info( "formato: $formato " );
+
+                    //$intervalo < $hora_fin
+                    while( strcmp($intervalo, $hora_fin) > 0 ){
+
+                        $lista_archivos_a_procesar[$intervalo]['fecha'] = $fechaActual;
+                        $lista_archivos_a_procesar[$intervalo]['grabacion'] = 0;
+                        $lista_archivos_a_procesar[$intervalo]['conversion'] = 0;
+                        $lista_archivos_a_procesar[$intervalo]['deteccion'] = 0;
+                        $lista_archivos_a_procesar[$intervalo]['archivo'] = $formato;
+                        $lista_archivos_a_procesar[$intervalo]['canal'] = $datos['canal'];
+                        $lista_archivos_a_procesar[$intervalo]['alias'] = $datos['alias'];
+
+                        $intervalo = segundos2hms( hms2segundos($intervalo) + hms2segundos( $datos['duracion'] ) );
+                        $formato = formatear_archivo_video( $datos['formato'], $intervalo);
+                        $logger->info("siguiente hora: " . $intervalo );
+
+                    }
+
+                    $logger->info("lista de archivos para configuracion: " . print_r($lista_archivos_a_procesar,true) );
+                    $status = consulta( 'INSERTAR_PAUTAS_PROCESAMIENTO', $lista_archivos_a_procesar );
 
                 }
+            }else{
 
-                $logger->info("lista de archivos para configuracion: " . print_r($lista_archivos_a_procesar,true) );
-                $status = consulta( 'INSERTAR_PAUTAS_PROCESAMIENTO', $lista_archivos_a_procesar );
-
+                $logger->info("lista de archivos para configuracion vacia " );
             }
 
             return;
@@ -1020,26 +1044,34 @@
         }
         if($argv[1] == '--config' && $argv[2] == '-activas' ){
 
+            $logger->info( "[--config][-activas]" );
             $fecha_actual = isset( $argv[3] )? $argv[3]: date("Y-m-d");
             $logger->info( "dia: " . $fecha_actual );
             $configuraciones_controlar = consulta( 'CONFIGURACIONES_ACTIVAS', array( 'fecha' => $fecha_actual  ) );
-            $lista_archivos_a_procesar = array();
 
-            foreach( $configuraciones_controlar as $indice => $configuracion ){
+            if( !empty( $configuraciones_controlar ) ){
 
-                $configuracion['fecha'] = $fecha_actual;
-                $logger->info( "configuracion a ejecutar: " . print_r( $configuracion, true ) );
-                $ejecutar_configuracion = ejecutar_configuracion( $configuracion );
-                $logger->info( "configuracion a ejecutar: " . print_r( $configuracion, true ) );
-                $ejecutar_configuracion_conversor = ejecutar_configuracion_conversor( $configuracion );
+                foreach( $configuraciones_controlar as $indice => $configuracion ){
 
+                    $configuracion['fecha'] = $fecha_actual;
+                    $logger->info( "configuracion controlar grabaciones: " . print_r( $configuracion, true ) );
+                    $ejecutar_configuracion = ejecutar_configuracion( 'CONTROL_GRABACION', $configuracion );
+                    $logger->info( "configuracion controlar conversiones: " . print_r( $configuracion, true ) );
+                    $ejecutar_configuracion_conversor = ejecutar_configuracion( 'CONTROL_CONVERSION', $configuracion );
+                }
+
+            }else{
+
+                $logger->info("lista de archivos para configuracion vacia " );
             }
 
             return;
 
         }
-        if( $argv[1] == '--config' && $argv[2] == '-pauta' && $argv[3]== '-canal' && $argv[5] == '-hora_inicio' &&
+        if( $argv[1] == '--config' && $argv[2] == '-grabacion' && $argv[3]== '-canal' && $argv[5] == '-hora_inicio' &&
             $argv[7] == '-fecha' && $argv[9] == '-duracion' && $argv[11] == '-alias' && $argv[13] == '-hora_fin' ){
+
+            $logger->info( "[--config][-grabacion]" );
 
             $canal = $argv[4];
             $logger->info("canal : " . $canal);
@@ -1053,91 +1085,113 @@
             $logger->info("alias : " . $alias);
             $hora_fin = $argv[14];
 
-            //convertimos adecuadamente la hora a evaluar
-            $hora_evaluar = segundos2hms( hms2segundos($hora_inicio) + hms2segundos( $duracion ) );
-            printf("hora_evaluar (%s)\n", $hora_evaluar);
-
             //convertimos adecuadamente la hora fin y le agregamos 2 minutos como reserva
             $hora_fin = segundos2hms( hms2segundos($hora_fin) + hms2segundos( $duracion ) + 2*60 );
-            printf("hora_fin (%s)\n", $hora_fin);
+            $logger->info( "hora fin: $hora_fin" );
+
+            //convertimos adecuadamente la hora a evaluar y le agregamos 2 minutos
+            $hora_evaluar = segundos2hms( hms2segundos($hora_inicio) + hms2segundos( $duracion ) + 2*60 );
+            $logger->info( "hora a evaluar: $hora_evaluar" );
+
+            if( strcmp( $hora_inicio, $hora_fin ) > 0 ){
+                //entonces hay cambio de dia
+                $manhana = date("Y-m-d", strtotime("+1day"));
+                $fecha_hora_fin = "$manhana $hora_fin";
+                $logger->info( "fechar hora fin: $fecha_hora_fin" );
+            }
 
             $indice = 0;
             $path_fijo = 'Y:\\';
-
             $path_archivo_a_procesar = $path_fijo . $canal;
+
             $archivos_a_procesar = consulta( 'GET_ARCHIVOS_PROCESAR', array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias ) );
-            $duracion_esperada = hms2segundos($duracion) - 3*60;
 
-            print_r($archivos_a_procesar);
+            if( !empty( $archivos_a_procesar ) ){
 
-            while( true ){
+                $logger->info( "archivos a procesar : " . print_r( $archivos_a_procesar, true ) );
+                $duracion_esperada = hms2segundos($duracion) - 10*60;
 
-                $hora_actual = date( "H:i:s");
-                printf("\nhora actual (%s) segundos\n", $hora_actual);
-                printf("hora a evaluar (%s) segundos\n", $hora_evaluar );
-                printf("hora_fin (%s)\n", $hora_fin);
+                while( true ){
 
-                //hora_actual > hora_fin
-                if( strcmp($hora_fin, $hora_actual) < 0 ){
-                    //hora_actual < hora_evaluar
-                    if( strcmp($hora_actual, $hora_evaluar) < 0 ){
+                    $fecha_hora_actual = date( "Y-m-d H:i:s");
+                    $hora_actual = date("H:i:s");
+                    $logger->info( "fecha hora actual: $fecha_hora_actual" );
+                    $logger->info( "fecha hora fin: $fecha_hora_fin" );
+                    $logger->info( "hora a evaluar: $hora_evaluar" );
 
-                        $diferencia_tiempo =  hms2segundos( $hora_evaluar ) - hms2segundos( $hora_actual );
-                        printf("dormir (%s) segundos\n", $diferencia_tiempo);
-                        sleep( $diferencia_tiempo );
+                    //$fecha_hora_actual < $fecha_hora_fin
+                    if( strcmp( $fecha_hora_actual, $fecha_hora_fin ) < 0 ){
+                        //hora_actual < hora_evaluar
+                        if( strcmp($hora_actual, $hora_evaluar) < 0 ){
 
-                    }else{
+                            $diferencia_tiempo =  hms2segundos( $hora_evaluar ) - hms2segundos( $hora_actual );
+                            $logger->info( "dormir: " . segundos2hms( $diferencia_tiempo ) );
+                            sleep( $diferencia_tiempo );
 
-                        $archivo = $path_archivo_a_procesar . '/' . $archivos_a_procesar[$indice]['archivo'] . '.mpg';
-                        printf("archivo (%s)\n", $archivo);
-
-                        /*
-                         * en el caso de que el nombre del archivo sea diferente del que se espera ejemplo, con el enutv -> (20141014-143219.mpg)
-                         * se espera (20141014-140000.mpg)
-                        */
-
-                        if( !is_file( $archivo ) ){
-
-                            $archivos = filtrar_directorio( $path_archivo_a_procesar, 'mpg', true );
-
-                            foreach( $archivos as $path ){
-
-                                $cadena = substr( basename( $path ), 0, -8 );
-                                printf("cadena (%s)\n", $cadena);
-                                $archivo_verificar = substr( $archivos_a_procesar[$indice]['archivo'], 0, -4 );
-                                printf("archivo_verificar (%s)\n", $archivo_verificar);
-
-                                if( strcmp ($archivo_verificar , $cadena ) == 0 ){
-
-                                    $archivo = $path;
-                                    break;
-                                }
-                            }
-                        }
-
-                        $duracion_video = duracion_video_new($archivo);
-
-                        if( $duracion_video >= $duracion_esperada ){
-
-                            $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 1 );
-                            $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
                         }else{
 
-                            $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 2 );
-                            $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
+                            $archivo = $path_archivo_a_procesar . '/' . $archivos_a_procesar[$indice]['archivo'] . '.mpg';
+                            $logger->info( "archivo a procesar: $archivo" );
+
+                            /*
+                             * en el caso de que el nombre del archivo sea diferente del que se espera ejemplo, con el enutv -> (20141014-143219.mpg)
+                             * se espera (20141014-140000.mpg)
+                            */
+
+                            if( !is_file( $archivo ) ){
+
+                                $archivos = filtrar_directorio( $path_archivo_a_procesar, 'mpg', true );
+
+                                foreach( $archivos as $path ){
+
+                                    $cadena = substr( basename( $path ), 0, -8 );
+                                    $logger->info( "cadena: $cadena" );
+                                    $archivo_verificar = substr( $archivos_a_procesar[$indice]['archivo'], 0, -4 );
+                                    $logger->info( "archivo_verificar: $archivo_verificar" );
+
+                                    if( strcmp ($archivo_verificar , $cadena ) == 0 ){
+
+                                        $archivo = $path;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            $duracion_video = duracion_video_new($archivo);
+
+                            if( $duracion_video >= $duracion_esperada ){
+
+                                $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 1 );
+                                $logger->info( "datos a actualizar: " . print_r( $datos_actualizar, true) );
+                                $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
+                            }else{
+
+                                $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 2 );
+                                $logger->info( "datos a actualizar: " . print_r( $datos_actualizar, true) );
+                                $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
+                            }
+
+                            $hora_evaluar = segundos2hms( hms2segundos($hora_inicio) + hms2segundos( $duracion ) + 2*60 );
+                            $logger->info( "nueva hora a evaluar: $hora_evaluar" );
+                            $indice++;
                         }
+                    }else{
 
-                        $hora_evaluar = segundos2hms( hms2segundos($hora_evaluar) + hms2segundos($duracion) );
-                        $indice++;
+                        return;
                     }
-                }else{
-
-                    return;
                 }
+            }else{
+
+                $logger->info("No existen archivos a procesar" );
             }
+
+            return;
+
         }
         if( $argv[1] == '--config' && $argv[2] == '-conversorpauta' && $argv[3]== '-canal' && $argv[5] == '-fecha' &&
-            $argv[7] == '-alias' && $argv[9] == '-duracion' ){
+            $argv[7] == '-alias' && $argv[9] == '-duracion' && $argv[11] == '-hora_fin' ){
+
+            $logger->info( "[--config][-conversorpauta]" );
 
             $canal = $argv[4];
             $logger->info( "canal: " . $canal);
@@ -1147,6 +1201,11 @@
             $logger->info( "alias: " . $alias);
             $duracion = $argv[10];
             $logger->info( "duracion: " . $duracion);
+            $hora_fin = $argv[12];
+            $logger->info( "hora fin: " . $hora_fin);
+
+            $hora_fin_correcta = segundos2hms( hms2segundos($hora_fin) + hms2segundos($duracion) + 10*60 );
+            $logger->info( "hora fin correcta: " . $hora_fin_correcta);
 
             $path_fijo_pautas = 'Y:\\';
             $path_fijo_pautas_convertidas = 'C:/Users/USER/ENTERMOVIL/DAAS/PROYECTOS/TVCHAT/PAUTAS/AFORTUNADOS1/PAUTAS/SNT';
@@ -1171,16 +1230,34 @@
                 $logger->info( "ya existe la carpeta" );
             }
 
-            while( true ){
+            $fecha_hora_actual = date("Y-m-d H:i:s");
+            $logger->info( "fecha hora actual: $fecha_hora_actual" );
+            $hora_inicio = date("H:i:s");
+            $logger->info( "hora inicio: $hora_inicio" );
+
+            //preparar condicion de termino
+            //$hora_inicio > $hora_fin
+            if( strcmp( $hora_inicio, $hora_fin_correcta ) > 0 ){
+                //entonces hay cambio de dia
+                $manhana = date("Y-m-d", strtotime("+1day"));
+                $fecha_hora_fin = "$manhana $hora_fin_correcta";
+                $logger->info( "fecha hora fin: $fecha_hora_fin" );
+            }
+
+            //$fecha_hora_actual < $fecha_hora_fin
+            while( strcmp( $fecha_hora_actual, $fecha_hora_fin ) < 0 ){
 
                 $archivos_a_procesar = consulta( 'GET_ARCHIVO_CONVERTIR', array( 'fecha' => $fecha, 'canal' => $canal ) );
                 $logger->info( "archivo a convertir: " . print_r( $archivos_a_procesar, true ) );
+
+                $fecha_hora_actual = date("Y-m-d H:i:s");
+                $logger->info( "fecha hora actual while: $fecha_hora_actual" );
 
                 if( !is_null( $archivos_a_procesar ) ){
 
                     $archivo = $path_archivo_a_procesar .'/'.$archivos_a_procesar['archivo'] . '.mpg';
                     $logger->info( "archivo: $archivo" );
-                    $tiempo_termino_grabacion = hms2segundos( substr( $archivos_a_procesar['archivo'], 9, 2 ) . ":" . substr( $archivos_a_procesar['archivo'], 11, 2 ). ":" . substr( $archivos_a_procesar['archivo'], 13, 2 ) ) + hms2segundos($duracion) + 10*60;
+                    $tiempo_termino_grabacion = hms2segundos( substr( $archivos_a_procesar['archivo'], 9, 2 ) . ":" . substr( $archivos_a_procesar['archivo'], 11, 2 ). ":" . substr( $archivos_a_procesar['archivo'], 13, 2 ) ) + hms2segundos($duracion) + 5*60;
                     $logger->info( "tiempo terminar grabacion: $tiempo_termino_grabacion" );
                     $logger->info( "tiempo terminar grabacion en segundos: " . segundos2hms( $tiempo_termino_grabacion ) );
                     /*
@@ -1245,6 +1322,8 @@
                     }
                 }
             }
+
+            return;
         }
         if($argv[1] == '--reportepautas'){
 
