@@ -1074,19 +1074,19 @@
             $logger->info( "[--config][-grabacion]" );
 
             $canal = $argv[4];
-            $logger->info("canal : " . $canal);
+            $logger->info("canal : $canal");
             $hora_inicio = $argv[6];
-            $logger->info("hora_inicio : " . $hora_inicio);
+            $logger->info("hora_inicio : $hora_inicio");
             $fecha = $argv[8];
-            $logger->info("fecha : " . $fecha);
+            $logger->info("fecha : $fecha");
             $duracion = $argv[10];
-            $logger->info("duracion : " . $duracion);
+            $logger->info("duracion : $duracion");
             $alias = $argv[12];
-            $logger->info("alias : " . $alias);
+            $logger->info("alias : $alias");
             $hora_fin = $argv[14];
 
             //convertimos adecuadamente la hora fin y le agregamos 2 minutos como reserva
-            $hora_fin = segundos2hms( hms2segundos($hora_fin) + hms2segundos( $duracion ) + 2*60 );
+            $hora_fin = segundos2hms( hms2segundos($hora_fin) + hms2segundos( $duracion ) + 60*60 );
             $logger->info( "hora fin: $hora_fin" );
 
             //convertimos adecuadamente la hora a evaluar y le agregamos 2 minutos
@@ -1162,12 +1162,12 @@
                             if( $duracion_video >= $duracion_esperada ){
 
                                 $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 1 );
-                                $logger->info( "datos a actualizar: " . print_r( $datos_actualizar, true) );
+                                $logger->info( "datos a actualizar [grabacion]: " . print_r( $datos_actualizar, true) );
                                 $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
                             }else{
 
                                 $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 2 );
-                                $logger->info( "datos a actualizar: " . print_r( $datos_actualizar, true) );
+                                $logger->info( "datos a actualizar [grabacion]: " . print_r( $datos_actualizar, true) );
                                 $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
                             }
 
@@ -1204,7 +1204,7 @@
             $hora_fin = $argv[12];
             $logger->info( "hora fin: " . $hora_fin);
 
-            $hora_fin_correcta = segundos2hms( hms2segundos($hora_fin) + hms2segundos($duracion) + 10*60 );
+            $hora_fin_correcta = segundos2hms( hms2segundos($hora_fin) + hms2segundos($duracion) + 60*60 );
             $logger->info( "hora fin correcta: " . $hora_fin_correcta);
 
             $path_fijo_pautas = 'Y:\\';
@@ -1293,15 +1293,18 @@
                         if( isset( $conversion ) ){
 
                             $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar['archivo'], 'estado' => 1 );
+                            $logger->info( "datos a actualizar [conversion]: " . print_r( $datos_actualizar, true) );
                             $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
                         }else{
 
                             $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar['archivo'], 'estado' => 2 );
+                            $logger->info( "datos a actualizar [conversion]: " . print_r( $datos_actualizar, true) );
                             $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
                         }
                     }else{
 
                         $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar['archivo'], 'estado' => 2 );
+                        $logger->info( "datos a actualizar [conversion]: " . print_r( $datos_actualizar, true) );
                         $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
                     }
 
