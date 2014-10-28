@@ -997,8 +997,8 @@
             $logger->info( "[--config][-dia]" );
             //si no se pasa el dia como parametro entonces se obtiene el dia actual
             $fechaActual = isset( $argv[3] )? $argv[3]: date("Y-m-d");
-            $logger->info( "dia: " . $fechaActual );
-            $generar_config_pautas_procesamiento = consulta( 'CONFIGURACIONES_ACTIVAS', array( 'fecha' => $fechaActual  ) );
+            $logger->info( "dia: $fechaActual" );
+            $generar_config_pautas_procesamiento = consulta( 'CONFIGURACIONES_ACTIVAS', array( 'fecha' => $fechaActual ) );
             $lista_archivos_a_procesar = array();
 
             if( !empty( $generar_config_pautas_procesamiento ) ){
@@ -1006,15 +1006,15 @@
                 foreach( $generar_config_pautas_procesamiento as $indice => $datos ){
 
                     $intervalo = $datos['hora_inicio'];
-                    $hora_fin = segundos2hms( hms2segundos( $datos['duracion'] ) + hms2segundos($datos['hora_fin']) );
-                    $formato = formatear_archivo_video( $datos['formato'], $intervalo);
+                    $hora_fin = segundos2hms( hms2segundos( $datos['duracion'] ) + hms2segundos( $datos['hora_fin'] ) );
+                    $formato = formatear_archivo_video( $datos['formato'], $intervalo );
 
                     $logger->info( "hora inicio: $intervalo" );
                     $logger->info( "hora fin: $hora_fin" );
                     $logger->info( "formato: $formato " );
 
                     //$intervalo < $hora_fin
-                    while( strcmp($intervalo, $hora_fin) > 0 ){
+                    while( strcmp($intervalo, $hora_fin) < 0 ){
 
                         $lista_archivos_a_procesar[$intervalo]['fecha'] = $fechaActual;
                         $lista_archivos_a_procesar[$intervalo]['grabacion'] = 0;
@@ -1026,7 +1026,7 @@
 
                         $intervalo = segundos2hms( hms2segundos($intervalo) + hms2segundos( $datos['duracion'] ) );
                         $formato = formatear_archivo_video( $datos['formato'], $intervalo);
-                        $logger->info("siguiente hora: " . $intervalo );
+                        $logger->info("siguiente hora: $intervalo" );
 
                     }
 
@@ -1093,11 +1093,16 @@
             $hora_evaluar = segundos2hms( hms2segundos($hora_inicio) + hms2segundos( $duracion ) + 2*60 );
             $logger->info( "hora a evaluar: $hora_evaluar" );
 
+            //$hora_inicio > $hora_fin
             if( strcmp( $hora_inicio, $hora_fin ) > 0 ){
                 //entonces hay cambio de dia
                 $manhana = date("Y-m-d", strtotime("+1day"));
                 $fecha_hora_fin = "$manhana $hora_fin";
-                $logger->info( "fechar hora fin: $fecha_hora_fin" );
+                $logger->info( "fechar hora fin (proximo dia): $fecha_hora_fin" );
+            }else{
+
+                $fecha_hora_fin = "$fecha $hora_fin";
+                $logger->info( "fechar hora fin (en el dia): $fecha_hora_fin" );
             }
 
             $indice = 0;
@@ -1241,7 +1246,11 @@
                 //entonces hay cambio de dia
                 $manhana = date("Y-m-d", strtotime("+1day"));
                 $fecha_hora_fin = "$manhana $hora_fin_correcta";
-                $logger->info( "fecha hora fin: $fecha_hora_fin" );
+                $logger->info( "fecha hora fin (proximo dia): $fecha_hora_fin" );
+            }else{
+
+                $fecha_hora_fin = "$fecha $hora_fin_correcta";
+                $logger->info( "fechar hora fin (en el dia): $fecha_hora_fin" );
             }
 
             //$fecha_hora_actual < $fecha_hora_fin
@@ -1309,6 +1318,8 @@
                     }
 
                 }else{
+
+                    $logger->info( "no existen archivos a convertir..." );
 
                     $hora_actual = hms2segundos( date("H:i:s") );
 
@@ -1566,7 +1577,7 @@
 
             $sql = "select *
                     from configuracion_pautas
-                    where dia_fin >= ? and dia_inicio <= ?";
+                    where dia_fin >= ? and dia_inicio <= ? and activo = true";
 
             $rs = $db->fetchAll( $sql, array( $datos['fecha'], $datos['fecha'] ) );
 
