@@ -2,15 +2,18 @@
     /**
      * Created by PhpStorm.
      * User: DAAS
-     * Date: 22/09/14
-     * Time: 12:43 PM
-     * Version: 3.2
+     * Date: 03/11/14
+     * Time: 09:43 AM
+     * Version: 4.0
      */
 
-    define('FFMPEG_LIBRARY', 'C:/ffmpeg/bin/ffmpeg.exe');
-    define('BUSCARPAUTA_LIBRARY', 'C:/Users/USER/ENTERMOVIL/DAAS/PROYECTOS/PROCESAR_PAUTAS/buscarPautas/Debug/buscarPautas.exe');
-    define('PROCESAR_PAUTAS', 'C:/Users/USER/ENTERMOVIL/DAAS/PROYECTOS/PROCESAR_PAUTAS/procesar_pautas.php');
-    set_include_path('C:/Program Files (x86)/Zend/ZendServer/share/ZendFramework/library');
+    $array_ini = parse_ini_file("configuracion.ini", true);
+
+    define('FFMPEG_LIBRARY', $array_ini['libraries']['FFMPEG_LIBRARY']);
+    define('BUSCARPAUTA_LIBRARY', $array_ini['libraries']['BUSCARPAUTA_LIBRARY']);
+    define('PROCESAR_PAUTAS', $array_ini['libraries']['PROCESAR_PAUTAS']);
+    set_include_path($array_ini['libraries']['ZEND_PATH']);
+
     ini_set('display_errors', true);
     error_reporting(E_STRICT);
     set_time_limit(0);
@@ -40,18 +43,20 @@
         //Base de Datos
         $config = new Zend_Config(array(
             'database' => array(
-                'adapter' => 'Pdo_Pgsql',
+                'adapter' => $array_ini['database']['adapter'],
                 'params'  => array(
-                    'host'     => '10.0.2.8',
-                    'username' => 'konectagw',
-                    'password' => 'konectagw2006',
-                    'dbname'   => 'gw'
+                    'host'     => $array_ini['database']['host'],
+                    'username' => $array_ini['database']['username'],
+                    'password' => $array_ini['database']['password'],
+                    'dbname'   => $array_ini['database']['dbname']
                 )
             )
         ));
-        $db = Zend_Db::factory($config->database);
-        //$db->getConnection();
 
+        $db = Zend_Db::factory($config->database);
+
+        //$db->getConnection();
+        //print_r($array_ini); exit;
 
     } catch( Zend_Db_Exception $e ) {
         $logger->err($e);
@@ -262,7 +267,7 @@
 
         if( $accion == 'CONTROL_GRABACION' ){
 
-            $plantilla_comando = 'php -q {PROCESAR_PAUTAS} --config -grabacion -canal {CANAL} -hora_inicio {HORA_INICIO} -fecha {FECHA} -duracion {DURACION} -alias {ALIAS} -hora_fin {HORA_FIN} 2>> logs/ejecutar_comando.txt';
+            $plantilla_comando = 'php -q {PROCESAR_PAUTAS} --config -grabacion -canal {CANAL} -hora_inicio {HORA_INICIO} -fecha {FECHA} -duracion {DURACION} -hora_fin {HORA_FIN} 2>> logs/ejecutar_comando.txt';
 
             $traduccion = array(
                 '{PROCESAR_PAUTAS}' => PROCESAR_PAUTAS,
@@ -270,21 +275,20 @@
                 '{HORA_INICIO}' => $configuracion['hora_inicio'],
                 '{FECHA}' => $configuracion['fecha'],
                 '{DURACION}' => $configuracion['duracion'],
-                '{ALIAS}' => $configuracion['alias'],
                 '{HORA_FIN}' => $configuracion['hora_fin']
             );
 
         }else if( $accion == 'CONTROL_CONVERSION' ){
 
-            $plantilla_comando = 'php -q {PROCESAR_PAUTAS} --config -conversorpauta -canal {CANAL} -fecha {FECHA} -alias {ALIAS} -duracion {DURACION} -hora_fin {HORA_FIN} 2>> logs/ejecutar_comando2.txt';
+                $plantilla_comando = 'php -q {PROCESAR_PAUTAS} --config -conversorpauta -canal {CANAL} -fecha {FECHA} -duracion {DURACION} -hora_inicio {HORA_INICIO} -hora_fin {HORA_FIN} 2>> logs/ejecutar_comando2.txt';
 
             $traduccion = array(
 
                 '{PROCESAR_PAUTAS}' => PROCESAR_PAUTAS,
                 '{CANAL}' => $configuracion['canal'],
                 '{FECHA}' => $configuracion['fecha'],
-                '{ALIAS}' => $configuracion['alias'],
                 '{DURACION}' => $configuracion['duracion'],
+                '{HORA_INICIO}' => $configuracion['hora_inicio'],
                 '{HORA_FIN}' => $configuracion['hora_fin'],
             );
 
@@ -295,30 +299,6 @@
         $logger->info( "ejecutar_configuracion: $comando_ejecutar" );
 
         $resultado = exec_bg( $comando_ejecutar );
-
-        return $resultado;
-
-    }
-
-    function ejecutar_configuracion_conversor( $configuracion ){
-
-        /*$argv[1] == '--config' && $argv[2] == '-conversorpauta' && $argv[3]== '-canal' && $argv[5] == '-fecha' && $argv[7] == '-alias'*/
-        global $logger;
-
-        $plantilla_comando_buscar_pautas = 'php -q {PROCESAR_PAUTAS} --config -conversorpauta -canal {CANAL} -fecha {FECHA} -alias {ALIAS} -duracion {DURACION} 2>> logs/ejecutar_comando2.txt';
-
-        $traduccion = array(
-
-            '{PROCESAR_PAUTAS}' => PROCESAR_PAUTAS,
-            '{CANAL}' => $configuracion['canal'],
-            '{FECHA}' => $configuracion['fecha'],
-            '{ALIAS}' => $configuracion['alias'],
-            '{DURACION}' => $configuracion['duracion'],
-        );
-
-        $comando_buscar_pautas = strtr($plantilla_comando_buscar_pautas, $traduccion);
-        $logger->info( 'ejecutar_conversorpauta: ' . $comando_buscar_pautas );
-        $resultado = exec_bg($comando_buscar_pautas);
 
         return $resultado;
 
@@ -705,9 +685,151 @@
         return $reporte_avi;
     }
 
+    function consulta( $accion, $datos = null ){
+
+        global $db;
+        global $logger;
+
+        $resultado = null;
+        $db->getConnection();
+
+        if( $accion == 'CONFIGURACIONES_ACTIVAS' ){
+
+            $sql = "select *
+                    from configuracion_pautas
+                    where dia_fin >= ? and dia_inicio <= ? and activo = 'true'";
+
+            $rs = $db->fetchAll( $sql, array( $datos['fecha'], $datos['fecha'] ) );
+
+            //si se retorna filas entonces se debe crear nuevas entradas en la tabla configuracion_pautas_procesamiento
+            if( !empty( $rs ) ){
+
+                foreach( $rs as $fila ){
+
+                    $resultado[] = (array)$fila;
+                }
+
+                $logger->info("resultado: " . print_r( $resultado, true ));
+            }else{
+
+                $logger->info("resultset vacio ");
+            }
+
+        }
+        else if( $accion == 'INSERTAR_PAUTAS_PROCESAMIENTO' ){
+
+             foreach( $datos as $indice => $dato  ){
+
+                 try{
+
+                     $resultado = $db->insert( 'configuracion_pautas_procesamiento', $dato );
+
+                 }catch( Exception $e ) {
+
+                     echo 'No se pudo insertar a la base de datos: ',  $e->getMessage(), "\n";
+                 }
+             }
+        }
+        else if( $accion == 'GET_ARCHIVOS_PROCESAR' ){
+
+             $sql = "select CPP.archivo
+                     from configuracion_pautas_procesamiento CPP
+                     where CPP.fecha = ? and CPP.canal = ?
+                     order by 1";
+
+             $rs = $db->fetchAll( $sql, array( $datos['fecha'], $datos['canal'] ) );
+
+             //si se retorna filas entonces se debe crear nuevas entradas en la tabla configuracion_pautas_procesamiento
+             if( !empty( $rs ) ){
+
+                 foreach( $rs as $fila ){
+
+                     $resultado[] = (array)$fila;
+                 }
+             }
+        }
+        else if( $accion == 'ACTUALIZAR_ESTADO_ARCHIVO' ){
+
+             $data = array(
+
+                 'grabacion' => $datos['estado'],
+
+             );
+
+             $where = array(
+
+                 'canal = ?' => $datos['canal'],
+                 'fecha = ?' => $datos['fecha'],
+                 'archivo = ?' => $datos['archivo']
+
+             );
+
+             $resultado = $db->update( 'configuracion_pautas_procesamiento', $data, $where );
+
+        }
+        else if( $accion == 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION' ){
+
+             $data = array(
+
+                 'conversion' => $datos['estado'],
+
+             );
+
+             $where = array(
+
+                 'canal = ?' => $datos['canal'],
+                 'fecha = ?' => $datos['fecha'],
+                 'archivo = ?' => $datos['archivo']
+
+             );
+
+             $resultado = $db->update( 'configuracion_pautas_procesamiento', $data, $where );
+
+             print_r($datos);
+
+        }
+        else if( $accion == 'GET_ARCHIVO_CONVERTIR' ){
+
+            $sql = "select cpp.*
+            from configuracion_pautas_procesamiento cpp
+            where cpp.fecha = ? and cpp.grabacion = 1 and cpp.conversion = 0 and cpp.canal = ?
+            order by 1,2,6
+            limit 1";
+
+            $rs = $db->fetchAll( $sql, array( $datos['fecha'], $datos['canal'] ) );
+
+            if( !empty( $rs ) ){
+
+                foreach( $rs as $fila ){
+
+                    $resultado = (array)$fila;
+                }
+            }
+
+        }
+
+        $db->closeConnection();
+
+        return $resultado;
+    }
+
+    function formatear_archivo_video( $formato, $dato ){
+
+        $dato_formateado = null;
+
+        if( $formato == "aaaammdd-hhmmss" ){
+
+            $partes = explode( ":", $dato );
+            $dato = $partes[0].$partes[1].$partes[2];
+            $dato_formateado = date("Ymd") . '-' . $dato;
+        }
+
+        return $dato_formateado;
+    }
+
     function analizar_parametros( $argv ) {
 
-        global $logger;
+        global $logger, $array_ini;
         //sirve para obtener la duracion de un video -d acompañado de $argv[2] = path completo del archivo de video
         if($argv[1] == '-d'){
             $path_carpeta_trabajo = $argv[2];
@@ -892,7 +1014,447 @@
 
             return;
         }
-        //LO NUEVO
+        //genera la secuencia de procesamiento de acuerdo al dia actual o al dia pasado como parametro
+        if($argv[1] == '--config' && $argv[2] == '-dia' ){
+            //configuracion de log personalizado
+            $logger_dia = new Zend_Log();
+            $format = '%timestamp% %priorityName% (%priority%): %message%' . PHP_EOL;
+            $formatter = new Zend_Log_Formatter_Simple($format);
+            $writer = new Zend_Log_Writer_Stream('logs/configuracion_dia_' . date('Y-m-d') .  '.log');
+            $writer->setFormatter($formatter);
+            $consola = new Zend_Log_Writer_Stream('php://output');
+            $consola->setFormatter($formatter);
+            $logger_dia->addWriter($consola);
+            $logger_dia->addWriter($writer);
+
+            $logger_dia->info( "[--config][-dia]" );
+            //si no se pasa el dia como parametro entonces se obtiene el dia actual
+            $fechaActual = isset( $argv[3] )? $argv[3]: date("Y-m-d");
+            $logger_dia->info( "dia: $fechaActual" );
+            $generar_config_pautas_procesamiento = consulta( 'CONFIGURACIONES_ACTIVAS', array( 'fecha' => $fechaActual ) );
+            $lista_archivos_a_procesar = array();
+
+            if( !empty( $generar_config_pautas_procesamiento ) ){
+
+                foreach( $generar_config_pautas_procesamiento as $indice => $datos ){
+
+                    $intervalo = $datos['hora_inicio'];
+                    $hora_fin = segundos2hms( hms2segundos($datos['hora_fin']) + hms2segundos( $datos['duracion'] ) );
+                    $formato = formatear_archivo_video( $datos['formato'], $intervalo );
+
+                    $logger_dia->info( "hora inicio: $intervalo" );
+                    $logger_dia->info( "hora fin: $hora_fin" );
+                    $logger_dia->info( "formato: $formato" );
+
+                    //se realiza de esta forma para porque es ciclico y si o si se tiene que poder entrar una vez para poder iterar
+                    do{
+
+                        $lista_archivos_a_procesar[$intervalo]['fecha'] = $fechaActual;
+                        $lista_archivos_a_procesar[$intervalo]['grabacion'] = 0;
+                        $lista_archivos_a_procesar[$intervalo]['conversion'] = 0;
+                        $lista_archivos_a_procesar[$intervalo]['deteccion'] = 0;
+                        $lista_archivos_a_procesar[$intervalo]['archivo'] = $formato;
+                        $lista_archivos_a_procesar[$intervalo]['canal'] = $datos['canal'];
+
+                        $intervalo = segundos2hms( hms2segundos($intervalo) + hms2segundos( $datos['duracion'] ) );
+                        $formato = formatear_archivo_video( $datos['formato'], $intervalo);
+                        $logger_dia->info("siguiente hora: $intervalo" );
+
+                    }while( $intervalo != $hora_fin );
+
+                    $logger_dia->info("lista de archivos para configuracion: " . print_r($lista_archivos_a_procesar, true) );
+
+                    try {
+
+                        $status = consulta( 'INSERTAR_PAUTAS_PROCESAMIENTO', $lista_archivos_a_procesar );
+                        $logger_dia->info("configuracion del dia [$fechaActual] cargada correctamente!!! con status[$status]" );
+
+                    } catch (Exception $e) {
+
+                        $logger_dia->err("excepcion capturada: " . $e->getMessage() );
+                        $logger_dia->err("no se pudo cargar la configuracion del dia [$fechaActual]!!!" );
+                    }
+                }//endforeach
+            }else{
+
+                $logger_dia->info("lista de archivos de configuracion del dia [$fechaActual] vacia!!!" );
+            }
+
+            return;
+
+        }
+        if($argv[1] == '--config' && $argv[2] == '-activas' ){
+
+            //configuracion de log personalizado
+            $logger_activas = new Zend_Log();
+            $format = '%timestamp% %priorityName% (%priority%): %message%' . PHP_EOL;
+            $formatter = new Zend_Log_Formatter_Simple($format);
+            $writer = new Zend_Log_Writer_Stream('logs/configuraciones_activas_' . date('Y-m-d') .  '.log');
+            $writer->setFormatter($formatter);
+            $consola = new Zend_Log_Writer_Stream('php://output');
+            $consola->setFormatter($formatter);
+            $logger_activas->addWriter($consola);
+            $logger_activas->addWriter($writer);
+
+            $logger_activas->info( "[--config][-activas]" );
+            $fecha_actual = isset( $argv[3] )? $argv[3]: date("Y-m-d");
+            $logger_activas->info( "dia: " . $fecha_actual );
+            $configuraciones_controlar = consulta( 'CONFIGURACIONES_ACTIVAS', array( 'fecha' => $fecha_actual  ) );
+
+            if( !empty( $configuraciones_controlar ) ){
+
+                foreach( $configuraciones_controlar as $indice => $configuracion ){
+
+                    $configuracion['fecha'] = $fecha_actual;
+                    $logger_activas->info( "configuracion controlar grabaciones: " . print_r( $configuracion, true ) );
+                    $ejecutar_configuracion = ejecutar_configuracion( 'CONTROL_GRABACION', $configuracion );
+                    $logger_activas->info( "configuracion controlar conversiones: " . print_r( $configuracion, true ) );
+                    $ejecutar_configuracion_conversor = ejecutar_configuracion( 'CONTROL_CONVERSION', $configuracion );
+                }
+
+            }else{
+
+                $logger_activas->info("lista de archivos para configuracion del dia [$fecha_actual] vacia!!!" );
+            }
+
+            return;
+
+        }
+        if( $argv[1] == '--config' && $argv[2] == '-grabacion' && $argv[3]== '-canal' && $argv[5] == '-hora_inicio' &&
+            $argv[7] == '-fecha' && $argv[9] == '-duracion' && $argv[11] == '-hora_fin' ){
+
+            //configuracion de log personalizado
+            $logger_grabacion = new Zend_Log();
+            $format = '%timestamp% %priorityName% (%priority%): %message%' . PHP_EOL;
+            $formatter = new Zend_Log_Formatter_Simple($format);
+            $writer = new Zend_Log_Writer_Stream('logs/configuracion_grabacion_' . date('Y-m-d') .  '.log');
+            $writer->setFormatter($formatter);
+            $consola = new Zend_Log_Writer_Stream('php://output');
+            $consola->setFormatter($formatter);
+            $logger_grabacion->addWriter($consola);
+            $logger_grabacion->addWriter($writer);
+
+            $logger_grabacion->info( "[--config][-grabacion]" );
+
+            $canal = $argv[4];
+            $logger_grabacion->info("canal : $canal");
+            $hora_inicio = $argv[6];
+            $logger_grabacion->info("hora_inicio : $hora_inicio");
+            $fecha = $argv[8];
+            $logger_grabacion->info("fecha : $fecha");
+            $duracion = $argv[10];
+            $logger_grabacion->info("duracion : $duracion");
+            $hora_fin = $argv[12];
+            $logger_grabacion->info("hora fin : $hora_fin");
+
+            $archivos_a_procesar = consulta( 'GET_ARCHIVOS_PROCESAR', array( 'fecha' => $fecha, 'canal' => $canal ) );
+
+            if( !empty( $archivos_a_procesar ) ){
+
+                //convertimos adecuadamente la hora fin y le agregamos 10 minutos como reserva
+                $hora_fin = segundos2hms( hms2segundos( $hora_fin ) + hms2segundos( $duracion ) + 10*60 );
+                $logger_grabacion->info( "hora fin correcta: $hora_fin" );
+
+                $hora_evaluar = segundos2hms( hms2segundos($hora_inicio) + hms2segundos( $duracion ) + 2*60 );
+                $logger_grabacion->info( "hora a evaluar: $hora_evaluar" );
+
+                $fecha_hora_evaluar = "$fecha $hora_evaluar";
+                $logger_grabacion->info( "fecha hora evaluar: $fecha_hora_evaluar" );
+
+                $segundos = hms2segundos( $duracion );
+                $logger_grabacion->info( "segundos: $segundos" );
+
+                //$hora_inicio > $hora_fin
+                if( strcmp( $hora_inicio, $hora_fin ) > 0 ){
+                    //entonces hay cambio de dia
+                    $manhana = date("Y-m-d", strtotime("+1day"));
+                    $fecha_hora_fin = "$manhana $hora_fin";
+                    $logger_grabacion->info( "fechar hora fin (proximo dia): $fecha_hora_fin" );
+                }else{
+
+                    $fecha_hora_fin = "$fecha $hora_fin";
+                    $logger_grabacion->info( "fechar hora fin (en el dia): $fecha_hora_fin" );
+                }
+
+                $indice = 0;
+                $path_fijo = $array_ini['path']['grabacion'];
+                $path_archivo_a_procesar = $path_fijo . $canal;
+
+                $logger_grabacion->info( "archivos a procesar : " . print_r( $archivos_a_procesar, true ) );
+                $duracion_esperada = 0;
+                $logger_grabacion->info( "duracion esperada : $duracion_esperada" );
+
+                $fecha_hora_actual = date( "Y-m-d H:i:s");
+
+                $condicion_de_termino = strtotime($fecha_hora_fin) - strtotime($fecha_hora_actual);
+                $logger_grabacion->info( "condicion de termino (<0) termino [$condicion_de_termino]" );
+
+                while( ( $indice < count( $archivos_a_procesar ) ) && ( $condicion_de_termino >= 0 ) ){
+
+                    $logger_grabacion->info( "fecha hora actual: $fecha_hora_actual" );
+                    $logger_grabacion->info( "fecha hora fin: $fecha_hora_fin" );
+                    $logger_grabacion->info( "fecha hora evaluar: $fecha_hora_evaluar" );
+
+                    $condicion_esperar_segundos = strtotime( $fecha_hora_evaluar ) - strtotime( $fecha_hora_actual );
+
+                    if( $condicion_esperar_segundos > 0 ){
+
+                        $logger_grabacion->info( "dormir [$condicion_esperar_segundos] segundos y en minutos " . segundos2hms($condicion_esperar_segundos) );
+                        sleep( $condicion_esperar_segundos );
+
+                    }else{
+
+                        $archivo = $path_archivo_a_procesar . '/' . $archivos_a_procesar[$indice]['archivo'] . '.mpg';
+                        $logger_grabacion->info( "archivo a procesar: $archivo" );
+
+                        /*
+                         * en el caso de que el nombre del archivo sea diferente del que se espera ejemplo, con el enutv -> (20141014-143219.mpg)
+                         * se espera (20141014-140000.mpg)
+                        */
+
+                        if( !is_file( $archivo ) ){
+
+                            $archivos = filtrar_directorio( $path_archivo_a_procesar, 'mpg', true );
+
+                            foreach( $archivos as $path ){
+
+                                $cadena = substr( basename( $path ), 0, -8 );
+                                $logger_grabacion->info( "cadena: $cadena" );
+                                $archivo_verificar = substr( $archivos_a_procesar[$indice]['archivo'], 0, -4 );
+                                $logger_grabacion->info( "archivo_verificar: $archivo_verificar" );
+
+                                if( strcmp ($archivo_verificar , $cadena ) == 0 ){
+
+                                    $archivo = $path;
+                                    break;
+                                }
+                            }
+                        }
+
+                        $duracion_video = duracion_video_new($archivo);
+                        $logger_grabacion->info( "duracion: $duracion_video" );
+
+                        if( $duracion_video > $duracion_esperada ){
+
+                            $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 1 );
+                            $logger_grabacion->info( "datos a actualizar [grabacion]: " . print_r( $datos_actualizar, true) );
+
+                        }else{
+
+                            $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 2 );
+                            $logger_grabacion->info( "datos a actualizar [grabacion]: " . print_r( $datos_actualizar, true) );
+
+                        }
+
+                        try{
+
+                            $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
+
+                        }catch (Exception $e){
+
+                            $logger_grabacion->err("excepcion capturada: " . $e->getMessage() );
+                            $logger_grabacion->err("no se pudo cargar actualizar el archivo [$archivos_a_procesar[$indice]['archivo']]!!!" );
+                        }
+
+                        $hora_evaluar = segundos2hms( hms2segundos( $hora_evaluar ) + hms2segundos( $duracion ) );
+
+                        $fecha_hora_evaluar = date("Y-m-d H:i:s", strtotime("$fecha_hora_evaluar +$segundos seconds") );
+                        $logger_grabacion->info( "nueva fecha hora evaluar: $fecha_hora_evaluar" );
+                        $indice++;
+                    }
+
+                    $fecha_hora_actual = date( "Y-m-d H:i:s");
+                    $condicion_de_termino = strtotime($fecha_hora_fin) - strtotime($fecha_hora_actual);
+                    $logger_grabacion->info( "1 - condicion de termino fecha hora actual [$fecha_hora_actual]" );
+                    $logger_grabacion->info( "2 - condicion de termino indice [$indice]" );
+                }
+
+            }else{
+
+                $logger_grabacion->info("No existen archivos a procesar" );
+            }
+
+            return;
+
+        }
+        if( $argv[1] == '--config' && $argv[2] == '-conversorpauta' && $argv[3]== '-canal' && $argv[5] == '-fecha'
+            && $argv[7] == '-duracion' && $argv[9] == '-hora_inicio' && $argv[11] == '-hora_fin' ){
+
+            //configuracion de log personalizado
+            $logger_conversor = new Zend_Log();
+            $format = '%timestamp% %priorityName% (%priority%): %message%' . PHP_EOL;
+            $formatter = new Zend_Log_Formatter_Simple($format);
+            $writer = new Zend_Log_Writer_Stream('logs/configuracion_conversion_' . date('Y-m-d') .  '.log');
+            $writer->setFormatter($formatter);
+            $consola = new Zend_Log_Writer_Stream('php://output');
+            $consola->setFormatter($formatter);
+            $logger_conversor->addWriter($consola);
+            $logger_conversor->addWriter($writer);
+
+            $logger_conversor->info( "[--config][-conversorpauta]" );
+
+            $canal = $argv[4];
+            $logger_conversor->info( "canal: " . $canal);
+            $fecha = $argv[6];
+            $logger_conversor->info( "fecha: " . $fecha);
+            $duracion = $argv[8];
+            $logger_conversor->info( "duracion: " . $duracion);
+            $hora_inicio = $argv[10];
+            $logger_conversor->info( "hora inicio: " . $hora_inicio);
+            $hora_fin = $argv[12];
+            $logger_conversor->info( "hora fin: " . $hora_fin);
+
+            $hora_fin_correcta = segundos2hms( hms2segundos( $hora_fin ) + hms2segundos( $duracion ) + 20*60 );
+            $logger_conversor->info( "hora fin correcta: " . $hora_fin_correcta);
+
+            $path_fijo_pautas = $array_ini['path']['grabacion'];
+            $path_fijo_pautas_convertidas = $array_ini['path']['conversion'] . "/$canal";
+
+            $nombre_dias = array('Sunday' => 'DOMINGO', 'Monday' => 'LUNES', 'Tuesday' => 'MARTES' ,'Wednesday'=>'MIERCOLES','Thursday'=>'JUEVES','Friday' => 'VIERNES', 'Saturday'=>'SABADO');
+            $path_archivo_a_procesar = $path_fijo_pautas .  $canal;
+            $nombre_dia = $nombre_dias[date ("l", strtotime($fecha))];
+            $path_destino_archivo_convertido = $path_fijo_pautas_convertidas . '/' . $fecha . '_' . $nombre_dia;
+            $tiempo_termino_grabacion = 0;
+
+            $hora_evaluar = segundos2hms( hms2segundos($hora_inicio) + hms2segundos( $duracion ) + 5*60 );
+            $logger_conversor->info( "hora a evaluar: $hora_evaluar" );
+
+            $fecha_hora_evaluar = "$fecha $hora_evaluar";
+            //$logger_conversor->info( "fecha hora evaluar: $fecha_hora_evaluar" );
+
+            $segundos = hms2segundos( $duracion );
+            $logger_conversor->info( "segundos: $segundos" );
+
+            if( !is_dir( $path_destino_archivo_convertido ) ){
+
+                if( mkdir( $path_destino_archivo_convertido ) ){
+
+                    $logger_conversor->info( "carpeta creada correctamente ->(" . basename($path_destino_archivo_convertido) . ")"  );
+
+                }else{
+
+                    $logger_conversor->info( "no se pudo crear la carpeta" );
+                }
+            }else{
+
+                $logger_conversor->info( "ya existe la carpeta" );
+            }
+
+            $fecha_hora_actual = date("Y-m-d H:i:s");
+            //$logger_conversor->info( "fecha hora actual: $fecha_hora_actual" );
+
+            //preparar condicion de termino
+            //$hora_inicio > $hora_fin
+            if( strcmp( $hora_inicio, $hora_fin_correcta ) > 0 ){
+                //entonces hay cambio de dia
+                $manhana = date("Y-m-d", strtotime("+1day"));
+                $fecha_hora_fin = "$manhana $hora_fin_correcta";
+                $logger_conversor->info( "fecha hora fin (proximo dia): $fecha_hora_fin" );
+            }else{
+
+                $fecha_hora_fin = "$fecha $hora_fin_correcta";
+                $logger_conversor->info( "fechar hora fin (en el dia): $fecha_hora_fin" );
+            }
+
+            $condicion_de_termino = strtotime($fecha_hora_fin) - strtotime($fecha_hora_actual);
+            $logger_conversor->info( "condicion de termino (<0) termino [$condicion_de_termino]" );
+
+            while( $condicion_de_termino >= 0 ){
+
+                $logger_conversor->info( "///" );
+                $logger_conversor->info( "fecha hora actual: $fecha_hora_actual" );
+                $logger_conversor->info( "fecha hora fin: $fecha_hora_fin" );
+                $logger_conversor->info( "fecha hora evaluar: $fecha_hora_evaluar" );
+
+                $condicion_esperar_segundos = strtotime( $fecha_hora_evaluar ) - strtotime( $fecha_hora_actual );
+
+                if( $condicion_esperar_segundos > 0 ){
+
+                    $logger_conversor->info( "dormir [$condicion_esperar_segundos] segundos y en minutos " . segundos2hms($condicion_esperar_segundos) );
+                    sleep( $condicion_esperar_segundos );
+
+                }else{
+
+                    $archivos_a_procesar = consulta( 'GET_ARCHIVO_CONVERTIR', array( 'fecha' => $fecha, 'canal' => $canal ) );
+                    $logger_conversor->info( "archivo a convertir: " . print_r( $archivos_a_procesar, true ) );
+
+                    if( !is_null( $archivos_a_procesar ) ){
+
+                        $archivo = $path_archivo_a_procesar .'/'.$archivos_a_procesar['archivo'] . '.mpg';
+                        $logger_conversor->info( "archivo: $archivo" );
+
+                        /*
+                         * en el caso de que el nombre del archivo sea diferente del que se espera ejemplo, con el enutv -> (20141014-143219.mpg)
+                         * se espera (20141014-140000.mpg)
+                        */
+
+                        if( !is_file( $archivo ) ){
+
+                            $logger_conversor->info( "no existe el archivo en el path ($archivo)" );
+                            $archivos = filtrar_directorio( $path_archivo_a_procesar, 'mpg', true );
+
+                            foreach( $archivos as $path ){
+
+                                $cadena = substr( basename( $path ), 0, -8 );
+                                $logger_conversor->info( "cadena ( $cadena )" );
+                                $archivo_verificar = substr( $archivos_a_procesar['archivo'], 0, -4 );
+                                $logger_conversor->info( "archivo_verificar ( $archivo_verificar )" );
+
+                                if( strcmp ($archivo_verificar , $cadena ) == 0 ){
+
+                                    $archivo = $path;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if( is_file( $archivo ) ){
+
+                            $datos_resumen = array();
+                            $conversion = convertir_a_AVI2( $archivo, $path_destino_archivo_convertido, $datos_resumen );
+
+                            if( isset( $conversion ) ){
+
+                                $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'archivo' => $archivos_a_procesar['archivo'], 'estado' => 1 );
+                                $logger_conversor->info( "datos a actualizar [conversion]: " . print_r( $datos_actualizar, true) );
+                                //$status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
+                            }else{
+
+                                $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'archivo' => $archivos_a_procesar['archivo'], 'estado' => 2 );
+                                $logger_conversor->info( "datos a actualizar [conversion]: " . print_r( $datos_actualizar, true) );
+                                //$status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
+                            }
+                        }else{
+
+                            $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'archivo' => $archivos_a_procesar['archivo'], 'estado' => 2 );
+                            $logger_conversor->info( "datos a actualizar [conversion]: " . print_r( $datos_actualizar, true) );
+                            //$status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
+                        }
+
+                        try{
+
+                            $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
+
+                        }catch (Exception $e){
+
+                            $logger_conversor->err("excepcion capturada: " . $e->getMessage() );
+                            $logger_conversor->err("no se pudo cargar actualizar el archivo [".$archivos_a_procesar['archivo']."]!!!" );
+                        }
+                    }
+
+                    $fecha_hora_evaluar = date("Y-m-d H:i:s", strtotime("$fecha_hora_evaluar +$segundos seconds") );
+                    $logger_conversor->info( "nueva fecha hora evaluar: $fecha_hora_evaluar" );//exit;
+                }
+
+                $fecha_hora_actual = date("Y-m-d H:i:s");
+                $logger_conversor->info( "fecha hora actual: $fecha_hora_actual" );
+                $logger_conversor->info( "fecha hora fin: $fecha_hora_fin" );
+                $condicion_de_termino = strtotime($fecha_hora_fin) - strtotime($fecha_hora_actual);
+                $logger_conversor->info( "condicion de termino (<0) termino [$condicion_de_termino]" );
+            }
+
+            return;
+        }
         if( $argv[1] == '--reporte'){
 
             $logger->info( "argumentos -> " . print_r( $argv, true ) );
@@ -990,411 +1552,6 @@
             echo "\nSe termino Correctamente\n";
             return;
 
-        }
-        //genera la secuencia de procesamiento de acuerdo al dia actual o al dia pasado como parametro
-        if($argv[1] == '--config' && $argv[2] == '-dia' ){
-            //configuracion de log personalizado
-            $logger_dia = new Zend_Log();
-            $format = '%timestamp% %priorityName% (%priority%): %message%' . PHP_EOL;
-            $formatter = new Zend_Log_Formatter_Simple($format);
-            $writer = new Zend_Log_Writer_Stream('logs/configuracion_dia_' . date('Y-m-d') .  '.log');
-            $writer->setFormatter($formatter);
-            $consola = new Zend_Log_Writer_Stream('php://output');
-            $consola->setFormatter($formatter);
-            $logger_dia->addWriter($consola);
-            $logger_dia->addWriter($writer);
-
-            $logger_dia->info( "[--config][-dia]" );
-            //si no se pasa el dia como parametro entonces se obtiene el dia actual
-            $fechaActual = isset( $argv[3] )? $argv[3]: date("Y-m-d");
-            $logger_dia->info( "dia: $fechaActual" );
-            $generar_config_pautas_procesamiento = consulta( 'CONFIGURACIONES_ACTIVAS', array( 'fecha' => $fechaActual ) );
-            $lista_archivos_a_procesar = array();
-
-            if( !empty( $generar_config_pautas_procesamiento ) ){
-
-                foreach( $generar_config_pautas_procesamiento as $indice => $datos ){
-
-                    $intervalo = $datos['hora_inicio'];
-                    $hora_fin = segundos2hms( hms2segundos($datos['hora_fin']) + hms2segundos( $datos['duracion'] ) );
-                    $formato = formatear_archivo_video( $datos['formato'], $intervalo );
-
-                    $logger_dia->info( "hora inicio: $intervalo" );
-                    $logger_dia->info( "hora fin: $hora_fin" );
-                    $logger_dia->info( "formato: $formato" );
-
-                    //se realiza de esta forma para porque es ciclico y si o si se tiene que poder entrar una vez para poder iterar
-                    do{
-
-                        $lista_archivos_a_procesar[$intervalo]['fecha'] = $fechaActual;
-                        $lista_archivos_a_procesar[$intervalo]['grabacion'] = 0;
-                        $lista_archivos_a_procesar[$intervalo]['conversion'] = 0;
-                        $lista_archivos_a_procesar[$intervalo]['deteccion'] = 0;
-                        $lista_archivos_a_procesar[$intervalo]['archivo'] = $formato;
-                        $lista_archivos_a_procesar[$intervalo]['canal'] = $datos['canal'];
-                        $lista_archivos_a_procesar[$intervalo]['alias'] = $datos['alias'];
-
-                        $intervalo = segundos2hms( hms2segundos($intervalo) + hms2segundos( $datos['duracion'] ) );
-                        $formato = formatear_archivo_video( $datos['formato'], $intervalo);
-                        $logger_dia->info("siguiente hora: $intervalo" );
-
-                    }while( $intervalo != $hora_fin );
-
-                    $logger_dia->info("lista de archivos para configuracion: " . print_r($lista_archivos_a_procesar, true) );
-
-                    try {
-
-                        $status = consulta( 'INSERTAR_PAUTAS_PROCESAMIENTO', $lista_archivos_a_procesar );
-                        $logger_dia->info("configuracion del dia cargada correctamente!!! con status[$status]" );
-
-                    } catch (Exception $e) {
-
-                        $logger_dia->err("excepcion capturada: " . $e->getMessage() );
-                        $logger_dia->err("no se pudo cargar la configuracion" );
-                    }
-                }//endforeach
-            }else{
-
-                $logger_dia->info("lista de archivos para configuracion vacia " );
-            }
-
-            return;
-
-        }
-        if($argv[1] == '--config' && $argv[2] == '-activas' ){
-
-            //configuracion de log personalizado
-            $logger_activas = new Zend_Log();
-            $format = '%timestamp% %priorityName% (%priority%): %message%' . PHP_EOL;
-            $formatter = new Zend_Log_Formatter_Simple($format);
-            $writer = new Zend_Log_Writer_Stream('logs/configuraciones_activas_' . date('Y-m-d') .  '.log');
-            $writer->setFormatter($formatter);
-            $consola = new Zend_Log_Writer_Stream('php://output');
-            $consola->setFormatter($formatter);
-            $logger_activas->addWriter($consola);
-            $logger_activas->addWriter($writer);
-
-            $logger_activas->info( "[--config][-activas]" );
-            $fecha_actual = isset( $argv[3] )? $argv[3]: date("Y-m-d");
-            $logger_activas->info( "dia: " . $fecha_actual );
-            $configuraciones_controlar = consulta( 'CONFIGURACIONES_ACTIVAS', array( 'fecha' => $fecha_actual  ) );
-
-            if( !empty( $configuraciones_controlar ) ){
-
-                foreach( $configuraciones_controlar as $indice => $configuracion ){
-
-                    $configuracion['fecha'] = $fecha_actual;
-                    $logger_activas->info( "configuracion controlar grabaciones: " . print_r( $configuracion, true ) );
-                    $ejecutar_configuracion = ejecutar_configuracion( 'CONTROL_GRABACION', $configuracion );
-                    $logger_activas->info( "configuracion controlar conversiones: " . print_r( $configuracion, true ) );
-                    $ejecutar_configuracion_conversor = ejecutar_configuracion( 'CONTROL_CONVERSION', $configuracion );
-                }
-
-            }else{
-
-                $logger_activas->info("lista de archivos para configuracion vacia " );
-            }
-
-            return;
-
-        }
-        if( $argv[1] == '--config' && $argv[2] == '-grabacion' && $argv[3]== '-canal' && $argv[5] == '-hora_inicio' &&
-            $argv[7] == '-fecha' && $argv[9] == '-duracion' && $argv[11] == '-alias' && $argv[13] == '-hora_fin' ){
-
-            //configuracion de log personalizado
-            $logger_grabacion = new Zend_Log();
-            $format = '%timestamp% %priorityName% (%priority%): %message%' . PHP_EOL;
-            $formatter = new Zend_Log_Formatter_Simple($format);
-            $writer = new Zend_Log_Writer_Stream('logs/configuracion_grabacion_' . date('Y-m-d') .  '.log');
-            $writer->setFormatter($formatter);
-            $consola = new Zend_Log_Writer_Stream('php://output');
-            $consola->setFormatter($formatter);
-            $logger_grabacion->addWriter($consola);
-            $logger_grabacion->addWriter($writer);
-            
-            $logger_grabacion->info( "[--config][-grabacion]" );
-
-            $canal = $argv[4];
-            $logger_grabacion->info("canal : $canal");
-            $hora_inicio = $argv[6];
-            $logger_grabacion->info("hora_inicio : $hora_inicio");
-            $fecha = $argv[8];
-            $logger_grabacion->info("fecha : $fecha");
-            $duracion = $argv[10];
-            $logger_grabacion->info("duracion : $duracion");
-            $alias = $argv[12];
-            $logger_grabacion->info("alias : $alias");
-            $hora_fin = $argv[14];
-
-            //convertimos adecuadamente la hora fin y le agregamos 10 minutos como reserva
-            $hora_fin = segundos2hms( hms2segundos( $hora_fin ) + hms2segundos( $duracion ) + 10*60 );
-            $logger_grabacion->info( "hora fin: $hora_fin" );
-
-            //convertimos adecuadamente la hora a evaluar y le agregamos 2 minutos
-            $hora_evaluar = segundos2hms( hms2segundos($hora_inicio) + hms2segundos( $duracion ) + 2*60 );
-            $logger_grabacion->info( "hora a evaluar: $hora_evaluar" );
-
-            //$hora_inicio > $hora_fin
-            if( strcmp( $hora_inicio, $hora_fin ) > 0 ){
-                //entonces hay cambio de dia
-                $manhana = date("Y-m-d", strtotime("+1day"));
-                $fecha_hora_fin = "$manhana $hora_fin";
-                $logger_grabacion->info( "fechar hora fin (proximo dia): $fecha_hora_fin" );
-            }else{
-
-                $fecha_hora_fin = "$fecha $hora_fin";
-                $logger_grabacion->info( "fechar hora fin (en el dia): $fecha_hora_fin" );
-            }
-
-            $indice = 0;
-            $path_fijo = 'Y:\\';
-            $path_archivo_a_procesar = $path_fijo . $canal;
-
-            $archivos_a_procesar = consulta( 'GET_ARCHIVOS_PROCESAR', array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias ) );
-
-            if( !empty( $archivos_a_procesar ) ){
-
-                $logger_grabacion->info( "archivos a procesar : " . print_r( $archivos_a_procesar, true ) );
-                $duracion_esperada = 0;//tienen que tener mayor duracion a 0
-
-                while( true ){
-
-                    $fecha_hora_actual = date( "Y-m-d H:i:s");
-                    $hora_actual = date("H:i:s");
-                    $logger_grabacion->info( "fecha hora actual: $fecha_hora_actual" );
-                    $logger_grabacion->info( "fecha hora fin: $fecha_hora_fin" );
-                    $logger_grabacion->info( "hora actual: $hora_actual" );
-                    $logger_grabacion->info( "hora a evaluar: $hora_evaluar" );
-
-                    //$fecha_hora_actual < $fecha_hora_fin
-                    if( strcmp( $fecha_hora_actual, $fecha_hora_fin ) < 0 ){
-                        //hora_actual < hora_evaluar
-                        if( strcmp($hora_actual, $hora_evaluar) < 0 ){
-
-                            $diferencia_tiempo =  hms2segundos( $hora_evaluar ) - hms2segundos( $hora_actual );
-                            $logger_grabacion->info( "dormir: " . segundos2hms( $diferencia_tiempo ) );
-                            sleep( $diferencia_tiempo );
-
-                        }else{
-
-                            $archivo = $path_archivo_a_procesar . '/' . $archivos_a_procesar[$indice]['archivo'] . '.mpg';
-                            $logger_grabacion->info( "archivo a procesar: $archivo" );
-
-                            /*
-                             * en el caso de que el nombre del archivo sea diferente del que se espera ejemplo, con el enutv -> (20141014-143219.mpg)
-                             * se espera (20141014-140000.mpg)
-                            */
-
-                            if( !is_file( $archivo ) ){
-
-                                $archivos = filtrar_directorio( $path_archivo_a_procesar, 'mpg', true );
-
-                                foreach( $archivos as $path ){
-
-                                    $cadena = substr( basename( $path ), 0, -8 );
-                                    $logger_grabacion->info( "cadena: $cadena" );
-                                    $archivo_verificar = substr( $archivos_a_procesar[$indice]['archivo'], 0, -4 );
-                                    $logger_grabacion->info( "archivo_verificar: $archivo_verificar" );
-
-                                    if( strcmp ($archivo_verificar , $cadena ) == 0 ){
-
-                                        $archivo = $path;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            $duracion_video = duracion_video_new($archivo);
-                            $logger_grabacion->info( "duracion: $duracion_video" );
-
-                            if( $duracion_video > $duracion_esperada ){
-
-                                $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 1 );
-                                $logger_grabacion->info( "datos a actualizar [grabacion]: " . print_r( $datos_actualizar, true) );
-                                $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
-                            }else{
-
-                                $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar[$indice]['archivo'], 'estado' => 2 );
-                                $logger_grabacion->info( "datos a actualizar [grabacion]: " . print_r( $datos_actualizar, true) );
-                                $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO', $datos_actualizar );
-                            }
-
-                            $hora_evaluar = segundos2hms( hms2segundos( $hora_evaluar ) + hms2segundos( $duracion ) );
-                            $logger_grabacion->info( "nueva hora a evaluar: $hora_evaluar" );
-                            $indice++;
-                        }
-                    }else{
-
-                        return;
-                    }
-                }
-            }else{
-
-                $logger_grabacion->info("No existen archivos a procesar" );
-            }
-
-            return;
-
-        }
-        if( $argv[1] == '--config' && $argv[2] == '-conversorpauta' && $argv[3]== '-canal' && $argv[5] == '-fecha' &&
-            $argv[7] == '-alias' && $argv[9] == '-duracion' && $argv[11] == '-hora_fin' ){
-
-            //configuracion de log personalizado
-            $logger_conversor = new Zend_Log();
-            $format = '%timestamp% %priorityName% (%priority%): %message%' . PHP_EOL;
-            $formatter = new Zend_Log_Formatter_Simple($format);
-            $writer = new Zend_Log_Writer_Stream('logs/configuracion_conversion_' . date('Y-m-d') .  '.log');
-            $writer->setFormatter($formatter);
-            $consola = new Zend_Log_Writer_Stream('php://output');
-            $consola->setFormatter($formatter);
-            $logger_conversor->addWriter($consola);
-            $logger_conversor->addWriter($writer);
-            
-            $logger_conversor->info( "[--config][-conversorpauta]" );
-
-            $canal = $argv[4];
-            $logger_conversor->info( "canal: " . $canal);
-            $fecha = $argv[6];
-            $logger_conversor->info( "fecha: " . $fecha);
-            $alias = $argv[8];
-            $logger_conversor->info( "alias: " . $alias);
-            $duracion = $argv[10];
-            $logger_conversor->info( "duracion: " . $duracion);
-            $hora_fin = $argv[12];
-            $logger_conversor->info( "hora fin: " . $hora_fin);
-
-            $hora_fin_correcta = segundos2hms( hms2segundos( $hora_fin ) + hms2segundos( $duracion ) + 20*60 );
-            $logger_conversor->info( "hora fin correcta: " . $hora_fin_correcta);
-
-            $path_fijo_pautas = 'Y:\\';
-            $path_fijo_pautas_convertidas = 'C:/Users/USER/ENTERMOVIL/DAAS/PROYECTOS/TVCHAT/PAUTAS/AFORTUNADOS1/PAUTAS/SNT';
-            $nombre_dias = array('Sunday' => 'DOMINGO', 'Monday' => 'LUNES', 'Tuesday' => 'MARTES' ,'Wednesday'=>'MIERCOLES','Thursday'=>'JUEVES','Friday' => 'VIERNES', 'Saturday'=>'SABADO');
-            $path_archivo_a_procesar = $path_fijo_pautas .  $canal;
-            $nombre_dia = $nombre_dias[date ("l", strtotime($fecha))];
-            $path_destino_archivo_convertido = $path_fijo_pautas_convertidas . '/' . $fecha . '_' . $nombre_dia;
-            $tiempo_termino_grabacion = 0;
-
-            if( !is_dir( $path_destino_archivo_convertido ) ){
-
-                if( mkdir( $path_destino_archivo_convertido ) ){
-
-                    $logger_conversor->info( "carpeta creada correctamente ->(" . basename($path_destino_archivo_convertido) . ")"  );
-
-                }else{
-
-                    $logger_conversor->info( "no se pudo crear la carpeta" );
-                }
-            }else{
-
-                $logger_conversor->info( "ya existe la carpeta" );
-            }
-
-            $fecha_hora_actual = date("Y-m-d H:i:s");
-            $logger_conversor->info( "fecha hora actual: $fecha_hora_actual" );
-            $hora_inicio = date("H:i:s");
-            $logger_conversor->info( "hora inicio: $hora_inicio" );
-
-            //preparar condicion de termino
-            //$hora_inicio > $hora_fin
-            if( strcmp( $hora_inicio, $hora_fin_correcta ) > 0 ){
-                //entonces hay cambio de dia
-                $manhana = date("Y-m-d", strtotime("+1day"));
-                $fecha_hora_fin = "$manhana $hora_fin_correcta";
-                $logger_conversor->info( "fecha hora fin (proximo dia): $fecha_hora_fin" );
-            }else{
-
-                $fecha_hora_fin = "$fecha $hora_fin_correcta";
-                $logger_conversor->info( "fechar hora fin (en el dia): $fecha_hora_fin" );
-            }
-
-            //$fecha_hora_actual < $fecha_hora_fin
-            while( strcmp( $fecha_hora_actual, $fecha_hora_fin ) < 0 ){
-
-                $archivos_a_procesar = consulta( 'GET_ARCHIVO_CONVERTIR', array( 'fecha' => $fecha, 'canal' => $canal ) );
-                $logger_conversor->info( "archivo a convertir: " . print_r( $archivos_a_procesar, true ) );
-
-                $fecha_hora_actual = date("Y-m-d H:i:s");
-                $logger_conversor->info( "fecha hora actual while: $fecha_hora_actual" );
-
-                if( !is_null( $archivos_a_procesar ) ){
-
-                    $archivo = $path_archivo_a_procesar .'/'.$archivos_a_procesar['archivo'] . '.mpg';
-                    $logger_conversor->info( "archivo: $archivo" );
-                    $hora_archivo_grabacion = substr( $archivos_a_procesar['archivo'], 9, 2 ) . ":" . substr( $archivos_a_procesar['archivo'], 11, 2 ). ":" . substr( $archivos_a_procesar['archivo'], 13, 2 );
-                    //calculamos la siguiente hora posible de procesamiento de conversion de archivo
-                    $tiempo_termino_grabacion = hms2segundos( $hora_archivo_grabacion ) + 2*( hms2segundos( $duracion ) ) + 4*60;
-                    $logger_conversor->info( "tiempo terminar grabacion en segundos: $tiempo_termino_grabacion" );
-                    $logger_conversor->info( "tiempo terminar grabacion en h:m:s: " . segundos2hms( $tiempo_termino_grabacion ) );
-
-                    /*
-                     * en el caso de que el nombre del archivo sea diferente del que se espera ejemplo, con el enutv -> (20141014-143219.mpg)
-                     * se espera (20141014-140000.mpg)
-                    */
-
-                    if( !is_file( $archivo ) ){
-
-                        $logger_conversor->info( "no existe el archivo en el path ($archivo)" );
-                        $archivos = filtrar_directorio( $path_archivo_a_procesar, 'mpg', true );
-
-                        foreach( $archivos as $path ){
-
-                            $cadena = substr( basename( $path ), 0, -8 );
-                            $logger_conversor->info( "cadena ( $cadena )" );
-                            $archivo_verificar = substr( $archivos_a_procesar['archivo'], 0, -4 );
-                            $logger_conversor->info( "archivo_verificar ( $archivo_verificar )" );
-
-                            if( strcmp ($archivo_verificar , $cadena ) == 0 ){
-
-                                $archivo = $path;
-                                break;
-                            }
-                        }
-                    }
-
-                    if( is_file( $archivo ) ){
-
-                        $datos_resumen = array();
-                        $conversion = convertir_a_AVI2( $archivo, $path_destino_archivo_convertido, $datos_resumen );
-
-                        if( isset( $conversion ) ){
-
-                            $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar['archivo'], 'estado' => 1 );
-                            $logger_conversor->info( "datos a actualizar [conversion]: " . print_r( $datos_actualizar, true) );
-                            $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
-                        }else{
-
-                            $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar['archivo'], 'estado' => 2 );
-                            $logger_conversor->info( "datos a actualizar [conversion]: " . print_r( $datos_actualizar, true) );
-                            $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
-                        }
-                    }else{
-
-                        $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'alias' => $alias, 'archivo' => $archivos_a_procesar['archivo'], 'estado' => 2 );
-                        $logger_conversor->info( "datos a actualizar [conversion]: " . print_r( $datos_actualizar, true) );
-                        $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
-                    }
-
-                }else{
-
-                    $logger_conversor->info( "no existen archivos a convertir..." );
-
-                    $hora_actual = hms2segundos( date("H:i:s") );
-
-                    if( $tiempo_termino_grabacion > $hora_actual ){
-
-                        $tiempo_dormir = $tiempo_termino_grabacion - $hora_actual;
-                        $logger_conversor->info( "tiempo a dormir ($tiempo_dormir)" );
-                        sleep($tiempo_dormir);
-                    }else{
-
-                        $tiempo_dormir = 5*60;
-                        $logger_conversor->info( "tiempo a dormir ($tiempo_dormir)" );
-                        sleep($tiempo_dormir);
-                    }
-                }
-            }
-
-            return;
         }
         if($argv[1] == '--reportepautas'){
 
@@ -1616,152 +1773,20 @@
             echo 'mirar el texto: ' . $text_nuevo;
             return;
         }
+        if($argv[1] == '--configuracion'){
+
+            // Analizar con secciones
+            $array_ini = parse_ini_file("configuracion.ini", true);
+            $logger->info( print_r($array_ini, true));
+
+            $path_fijo = $array_ini['path']['grabacion'] . "AFORTUNADOS";
+            $archivos = filtrar_directorio($path_fijo, 'mpg', true);
+
+            return;
+        }
 
         help();
         printf("\n");
     }
 
     analizar_parametros( $argv );
-
-    function consulta( $accion, $datos = null ){
-
-        global $db;
-        global $logger;
-
-        $resultado = null;
-
-        if( $accion == 'CONFIGURACIONES_ACTIVAS' ){
-
-            $sql = "select *
-                    from configuracion_pautas
-                    where dia_fin >= ? and dia_inicio <= ? and activo = 'true'";
-
-            $rs = $db->fetchAll( $sql, array( $datos['fecha'], $datos['fecha'] ) );
-
-            //si se retorna filas entonces se debe crear nuevas entradas en la tabla configuracion_pautas_procesamiento
-            if( !empty( $rs ) ){
-
-                foreach( $rs as $fila ){
-
-                    $resultado[] = (array)$fila;
-                }
-
-                $logger->info("resultado: " . print_r( $resultado, true ));
-            }else{
-
-                $logger->info("resultset vacio ");
-            }
-
-        }
-        elseif( $accion == 'INSERTAR_PAUTAS_PROCESAMIENTO' ){
-
-            foreach( $datos as $indice => $dato  ){
-
-                try{
-
-                    $resultado = $db->insert( 'configuracion_pautas_procesamiento', $dato );
-
-                }catch( Exception $e ) {
-
-                    echo 'No se pudo insertar a la base de datos: ',  $e->getMessage(), "\n";
-                }
-            }
-        }
-        elseif( $accion == 'GET_ARCHIVOS_PROCESAR' ){
-
-            $sql = "select CPP.archivo
-                    from configuracion_pautas_procesamiento CPP
-                    where CPP.fecha = ? and CPP.canal = ? and CPP.alias = ?
-                    order by 1";
-
-            $rs = $db->fetchAll( $sql, array( $datos['fecha'], $datos['canal'], $datos['alias'] ) );
-
-            //si se retorna filas entonces se debe crear nuevas entradas en la tabla configuracion_pautas_procesamiento
-            if( !empty( $rs ) ){
-
-                foreach( $rs as $fila ){
-
-                    $resultado[] = (array)$fila;
-                }
-            }
-        }
-        elseif( $accion == 'ACTUALIZAR_ESTADO_ARCHIVO' ){
-
-            $data = array(
-
-                'grabacion' => $datos['estado'],
-
-            );
-
-            $where = array(
-
-                'alias = ?' => $datos['alias'],
-                'canal = ?' => $datos['canal'],
-                'fecha = ?' => $datos['fecha'],
-                'archivo = ?' => $datos['archivo']
-
-            );
-
-            $resultado = $db->update( 'configuracion_pautas_procesamiento', $data, $where );
-
-            print_r($datos);
-
-        }
-        elseif( $accion == 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION' ){
-
-            $data = array(
-
-                'conversion' => $datos['estado'],
-
-            );
-
-            $where = array(
-
-                'alias = ?' => $datos['alias'],
-                'canal = ?' => $datos['canal'],
-                'fecha = ?' => $datos['fecha'],
-                'archivo = ?' => $datos['archivo']
-
-            );
-
-            $resultado = $db->update( 'configuracion_pautas_procesamiento', $data, $where );
-
-            print_r($datos);
-
-        }
-        elseif( $accion == 'GET_ARCHIVO_CONVERTIR' ){
-
-            $sql = "select cpp.*
-            from configuracion_pautas_procesamiento cpp
-            where cpp.fecha = ? and cpp.grabacion = 1 and cpp.conversion = 0 and cpp.canal = ?
-            order by 1,2,6
-            limit 1";
-
-            $rs = $db->fetchAll( $sql, array( $datos['fecha'], $datos['canal'] ) );
-
-            if( !empty( $rs ) ){
-
-                foreach( $rs as $fila ){
-
-                    $resultado = (array)$fila;
-                }
-            }
-
-        }
-
-        return $resultado;
-    }
-
-    function formatear_archivo_video( $formato, $dato ){
-
-        $dato_formateado = null;
-
-        if( $formato == "aaaammdd-hhmmss" ){
-
-            $partes = explode( ":", $dato );
-            $dato = $partes[0].$partes[1].$partes[2];
-            $dato_formateado = date("Ymd") . '-' . $dato;
-        }
-
-        return $dato_formateado;
-    }
