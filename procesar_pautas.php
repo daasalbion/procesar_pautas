@@ -412,6 +412,7 @@
             'duracion_segundos' => 0,
             'duracion_hms' => 0
         );
+
         if(!empty($resultado)) {
 
             preg_match('/Duration: (.*?),/', $resultado, $matches);
@@ -424,8 +425,6 @@
             $datos_duracion['duracion_segundos'] = $duracion_segundos;
             $datos_duracion['duracion_hms'] = $duracion_hms;
 
-            /*$datos_resumen[basename($path_archivo)]['duracion_segundos'] = $duracion_segundos;
-            $datos_resumen[basename($path_archivo)]['duracion_hms'] = $duracion_hms;*/
         }
 
         return $duracion_segundos;
@@ -484,8 +483,6 @@
             'duracion_hms' => '00:00:00',
             'HORA_MINUTO_REAL' => 'COMPLETAR AQUI HORA:MINUTO REAL'
         );
-
-        //duracion_video($path_archivo_destino, $datos_resumen);
 
         return $path_archivo_destino;
 
@@ -794,7 +791,7 @@
             from configuracion_pautas_procesamiento cpp
             where cpp.fecha = ? and cpp.grabacion = 1 and cpp.conversion = 0 and cpp.canal = ?
             order by 1,2,6
-            limit 1";
+            --limit 1";
 
             $rs = $db->fetchAll( $sql, array( $datos['fecha'], $datos['canal'] ) );
 
@@ -1067,12 +1064,15 @@
                     try {
 
                         $status = consulta( 'INSERTAR_PAUTAS_PROCESAMIENTO', $lista_archivos_a_procesar );
-                        $logger_dia->info("configuracion del dia [$fechaActual] cargada correctamente!!! con status[$status]" );
+                        $logger_dia->info("configuracion del dia [$fechaActual] cargada con status[$status]" );
 
                     } catch (Exception $e) {
 
                         $logger_dia->err("excepcion capturada: " . $e->getMessage() );
                         $logger_dia->err("no se pudo cargar la configuracion del dia [$fechaActual]!!!" );
+                        $logger_dia->info("excepcion capturada: " . $e->getMessage() );
+                        $logger_dia->info("no se pudo cargar la configuracion del dia [$fechaActual]!!!" );
+
                     }
                 }//endforeach
             }else{
@@ -1314,13 +1314,11 @@
             $path_archivo_a_procesar = $path_fijo_pautas .  $canal;
             $nombre_dia = $nombre_dias[date ("l", strtotime($fecha))];
             $path_destino_archivo_convertido = $path_fijo_pautas_convertidas . '/' . $fecha . '_' . $nombre_dia;
-            $tiempo_termino_grabacion = 0;
 
             $hora_evaluar = segundos2hms( hms2segundos($hora_inicio) + hms2segundos( $duracion ) + 5*60 );
             $logger_conversor->info( "hora a evaluar: $hora_evaluar" );
 
             $fecha_hora_evaluar = "$fecha $hora_evaluar";
-            //$logger_conversor->info( "fecha hora evaluar: $fecha_hora_evaluar" );
 
             $segundos = hms2segundos( $duracion );
             $logger_conversor->info( "segundos: $segundos" );
@@ -1341,7 +1339,6 @@
             }
 
             $fecha_hora_actual = date("Y-m-d H:i:s");
-            //$logger_conversor->info( "fecha hora actual: $fecha_hora_actual" );
 
             //preparar condicion de termino
             //$hora_inicio > $hora_fin
@@ -1361,7 +1358,7 @@
 
             while( $condicion_de_termino >= 0 ){
 
-                $logger_conversor->info( "///" );
+                $logger_conversor->info( "<*************nueva iteracion***************>" );
                 $logger_conversor->info( "fecha hora actual: $fecha_hora_actual" );
                 $logger_conversor->info( "fecha hora fin: $fecha_hora_fin" );
                 $logger_conversor->info( "fecha hora evaluar: $fecha_hora_evaluar" );
@@ -1391,6 +1388,7 @@
                         if( !is_file( $archivo ) ){
 
                             $logger_conversor->info( "no existe el archivo en el path ($archivo)" );
+                            $logger_conversor->info( "chequeamos el path ($path_archivo_a_procesar)" );
                             $archivos = filtrar_directorio( $path_archivo_a_procesar, 'mpg', true );
 
                             foreach( $archivos as $path ){
@@ -1410,6 +1408,8 @@
 
                         if( is_file( $archivo ) ){
 
+                            $logger_conversor->info( "se encontro el archivo ($archivo) chequeado" );
+
                             $datos_resumen = array();
                             $conversion = convertir_a_AVI2( $archivo, $path_destino_archivo_convertido, $datos_resumen );
 
@@ -1417,25 +1417,26 @@
 
                                 $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'archivo' => $archivos_a_procesar['archivo'], 'estado' => 1 );
                                 $logger_conversor->info( "datos a actualizar [conversion]: " . print_r( $datos_actualizar, true) );
-                                //$status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
+
                             }else{
 
                                 $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'archivo' => $archivos_a_procesar['archivo'], 'estado' => 2 );
                                 $logger_conversor->info( "datos a actualizar [conversion]: " . print_r( $datos_actualizar, true) );
-                                //$status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
+
                             }
                         }else{
 
+                            $logger_conversor->info( "no se encontro el archivo ($archivo) chequeado" );
                             $datos_actualizar = array( 'fecha' => $fecha, 'canal' => $canal, 'archivo' => $archivos_a_procesar['archivo'], 'estado' => 2 );
                             $logger_conversor->info( "datos a actualizar [conversion]: " . print_r( $datos_actualizar, true) );
-                            //$status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
+
                         }
 
                         try{
 
                             $status = consulta( 'ACTUALIZAR_ESTADO_ARCHIVO_CONVERSION', $datos_actualizar );
 
-                        }catch (Exception $e){
+                        }catch(Exception $e){
 
                             $logger_conversor->err("excepcion capturada: " . $e->getMessage() );
                             $logger_conversor->err("no se pudo cargar actualizar el archivo [".$archivos_a_procesar['archivo']."]!!!" );
